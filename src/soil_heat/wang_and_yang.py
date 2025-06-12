@@ -18,6 +18,7 @@ All functions accept **NumPy arrays** or scalars where applicable and are fully
 type‑annotated.  Docstrings use the **NumPy docstring standard** so they can be
 rendered by *Sphinx‑napoleon*.
 """
+
 from __future__ import annotations
 
 import math
@@ -28,7 +29,7 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Constants & type aliases
 # -----------------------------------------------------------------------------
-SIGMA_SB: float = 5.670e‑8  # Stefan‑Boltzmann constant (W m‑2 K‑4)
+SIGMA_SB: float = 5.670e-8  # Stefan‑Boltzmann constant (W m‑2 K‑4)
 RHO_WATER: float = 1_000.0  # Density of liquid water (kg m‑3)
 CP_WATER: float = 4_200_000.0  # Volumetric heat capacity of water (J m‑3 K‑1)
 
@@ -38,7 +39,10 @@ ArrayLike = np.ndarray | Sequence[float]
 # Equation (1) & (2) –  the 1‑D thermal diffusion equation & Fourier’s law
 # -----------------------------------------------------------------------------
 
-def soil_heat_flux(Tz: ArrayLike, dz: ArrayLike, lambda_s: ArrayLike | float) -> np.ndarray:  # Eq. (2)
+
+def soil_heat_flux(
+    Tz: ArrayLike, dz: ArrayLike, lambda_s: ArrayLike | float
+) -> np.ndarray:  # Eq. (2)
     """Compute heat flux *G* at cell interfaces using Fourier’s law.
 
     Parameters
@@ -57,24 +61,26 @@ def soil_heat_flux(Tz: ArrayLike, dz: ArrayLike, lambda_s: ArrayLike | float) ->
     """
     Tz = np.asarray(Tz, dtype=float)
     dz = np.asarray(dz, dtype=float)
-    lam = np.asarray(lambda_s, dtype=float) if np.ndim(lambda_s) else float(lambda_s)
+    lam = np.asarray(lambda_s, dtype=float) if np.ndim(lambda_s) else float(lambda_s)  # type: ignore
 
     # Conduction flux between layer i (upper) and i+1 (lower)
     dT = np.diff(Tz)
     if np.ndim(lam):
-        lam_int = 0.5 * (lam[:-1] + lam[1:])
+        lam_int = 0.5 * (lam[:-1] + lam[1:])  # type: ignore
     else:
         lam_int = lam
     G_int = lam_int * dT / dz[:-1]  # W m‑2, positive if T decreases with depth
 
     # Extrapolate surface & bottom fluxes (Neumann BC → same gradient)
-    G_surface = lam_int[0] * (Tz[0] - Tz[1]) / dz[0]
-    G_bottom = lam_int[-1] * (Tz[-2] - Tz[-1]) / dz[-1]
+    G_surface = lam_int[0] * (Tz[0] - Tz[1]) / dz[0]  # type: ignore
+    G_bottom = lam_int[-1] * (Tz[-2] - Tz[-1]) / dz[-1]  # type: ignore
     return np.concatenate(([G_surface], G_int, [G_bottom]))
+
 
 # -----------------------------------------------------------------------------
 # Equation (3) & (5) –  integral form for *G(z)*
 # -----------------------------------------------------------------------------
+
 
 def integrated_soil_heat_flux(
     rho_c: ArrayLike,
@@ -109,11 +115,15 @@ def integrated_soil_heat_flux(
     storage_term = np.cumsum(rho_c * dT * dz) / dt  # W m‑2
     return G_ref + storage_term
 
+
 # -----------------------------------------------------------------------------
 # Equation (4a–c) – volumetric heat capacity
 # -----------------------------------------------------------------------------
 
-def volumetric_heat_capacity(theta: ArrayLike, theta_sat: float | ArrayLike) -> np.ndarray:  # Eq. 4
+
+def volumetric_heat_capacity(
+    theta: ArrayLike, theta_sat: float | ArrayLike
+) -> np.ndarray:  # Eq. 4
     """Volumetric heat capacity of moist soil.
 
     Parameters
@@ -137,9 +147,11 @@ def volumetric_heat_capacity(theta: ArrayLike, theta_sat: float | ArrayLike) -> 
 
     return rho_c_dry + rho_c_water * theta
 
+
 # -----------------------------------------------------------------------------
 # Equation (6a–b) – stretched vertical grid
 # -----------------------------------------------------------------------------
+
 
 def stretched_grid(n: int, D: float, xi: float) -> np.ndarray:  # Eq. 6
     """Generate *n* layer thicknesses following the exponential stretching rule.
@@ -164,9 +176,11 @@ def stretched_grid(n: int, D: float, xi: float) -> np.ndarray:  # Eq. 6
     dz = delta_z0 * np.exp(xi * np.arange(n))
     return dz
 
+
 # -----------------------------------------------------------------------------
 # Equation (7) –  implicit TDE discretisation (tridiagonal system)
 # -----------------------------------------------------------------------------
+
 
 def tridiagonal_coeffs(
     dz: ArrayLike,
@@ -179,18 +193,18 @@ def tridiagonal_coeffs(
     Returns three 1‑D arrays representing the sub‑, main‑, and super‑diagonals.
     """
     dz = np.asarray(dz)
-    lam = np.asarray(lambda_s) if np.ndim(lambda_s) else float(lambda_s)
+    lam = np.asarray(lambda_s) if np.ndim(lambda_s) else float(lambda_s)  # type: ignore
     n = len(dz)
 
     if np.ndim(lam):
-        lam_up = np.concatenate(([lam[0]], 0.5 * (lam[:-1] + lam[1:])))
-        lam_dn = np.concatenate((0.5 * (lam[:-1] + lam[1:]), [lam[-1]]))
+        lam_up = np.concatenate(([lam[0]], 0.5 * (lam[:-1] + lam[1:])))  # type: ignore
+        lam_dn = np.concatenate((0.5 * (lam[:-1] + lam[1:]), [lam[-1]]))  # type: ignore
     else:
         lam_up = lam_dn = np.full(n, lam)
 
     A = lam_up / dz / dz  # upper diagonal (i‑1)
     C = lam_dn / dz / dz  # lower diagonal (i+1)
-    B = rho_c / dt + A + C  # main diagonal
+    B = rho_c / dt + A + C  # type: ignore # main diagonal
     return A[1:], B, C[:-1]
 
 
@@ -228,56 +242,80 @@ def solve_tde(
     T_new = solve_banded((1, 1), ab, D_vec)
     return np.concatenate(([Tsfc], T_new, [Tbot]))
 
+
 # -----------------------------------------------------------------------------
 # Temperature‑profile correction (Section 2.2)
 # -----------------------------------------------------------------------------
 
-def correct_profile(T_model: ArrayLike, depths_model: ArrayLike, T_obs: ArrayLike, depths_obs: ArrayLike) -> np.ndarray:
+
+def correct_profile(
+    T_model: ArrayLike, depths_model: ArrayLike, T_obs: ArrayLike, depths_obs: ArrayLike
+) -> np.ndarray:
     """Add linear‑interpolated bias (Eq. ΔT_k) to model profile."""
-    bias = np.interp(depths_model, depths_obs, T_obs - np.interp(depths_obs, depths_model, T_model))
+    bias = np.interp(
+        depths_model, depths_obs, T_obs - np.interp(depths_obs, depths_model, T_model)
+    )
     return T_model + bias
+
 
 # -----------------------------------------------------------------------------
 # Equation (8) –  surface temperature from long‑wave radiation
 # -----------------------------------------------------------------------------
 
-def surface_temperature_longwave(R_lw_up: float, R_lw_dn: float, emissivity: float = 0.98) -> float:
+
+def surface_temperature_longwave(
+    R_lw_up: float, R_lw_dn: float, emissivity: float = 0.98
+) -> float:
     """Convert upward/downward long‑wave radiation to surface temperature (Eq. 8)."""
     return ((R_lw_up - (1.0 - emissivity) * R_lw_dn) / (emissivity * SIGMA_SB)) ** 0.25
+
 
 # -----------------------------------------------------------------------------
 # Equation (9a–c) –  thermal conductivity parameterisation
 # -----------------------------------------------------------------------------
 
-def thermal_conductivity_yang2008(theta: ArrayLike, theta_sat: float, rho_dry: float | ArrayLike) -> np.ndarray:
+
+def thermal_conductivity_yang2008(
+    theta: ArrayLike, theta_sat: float, rho_dry: float | ArrayLike
+) -> np.ndarray:
     """Estimate soil thermal conductivity following Yang et al. (2005) (Eq. 9)."""
     theta = np.asarray(theta, dtype=float)
     rho_dry = np.asarray(rho_dry, dtype=float)
 
     lam_dry = (170.0 + 64.7 * rho_dry) / (2700.0 - 947.0 * rho_dry)  # Eq. 9b
     lam_sat = 2.0  # Eq. 9c (W m‑1 K‑1)
-    lam = lam_dry + (lam_sat - lam_dry) * np.exp(0.36 * (theta / theta_sat - 1.0))  # Eq. 9a
+    lam = lam_dry + (lam_sat - lam_dry) * np.exp(
+        0.36 * (theta / theta_sat - 1.0)
+    )  # Eq. 9a
     return lam
+
 
 # -----------------------------------------------------------------------------
 # Equation (10–11) –  flux error for linear interpolation (diagnostic)
 # -----------------------------------------------------------------------------
 
-def flux_error_linear(rho_c: ArrayLike, S2_minus_S1: ArrayLike, dt: float) -> np.ndarray:  # Eq. 11
+
+def flux_error_linear(
+    rho_c: ArrayLike, S2_minus_S1: ArrayLike, dt: float
+) -> np.ndarray:  # Eq. 11
     """Error introduced when using a LINEAR temperature profile (diagnostic)."""
-    return rho_c * S2_minus_S1 / dt
+    return rho_c * S2_minus_S1 / dt  # type: ignore
+
 
 # -----------------------------------------------------------------------------
 # Equation (12) –  surface energy budget closure
 # -----------------------------------------------------------------------------
 
+
 def surface_energy_residual(R_net: float, H: float, LE: float, G0: float) -> float:
     """Return the residual *ΔE* in Eq. (12)."""
     return R_net - (H + LE + G0)
 
+
 # -----------------------------------------------------------------------------
 # High‑level helper: one TDEC timestep
 # -----------------------------------------------------------------------------
+
 
 def tdec_step(
     T_prev: ArrayLike,
@@ -328,6 +366,7 @@ def tdec_step(
         G_ref=0.0,
     )
     return T_corr, G_prof
+
 
 __all__ = [
     "soil_heat_flux",

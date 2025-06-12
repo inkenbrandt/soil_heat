@@ -10,6 +10,243 @@ from scipy.optimize import curve_fit
 # Constants
 WATER_HEAT_CAPACITY = 4.18  # MJ m-3 K-1
 
+import numpy as np
+
+
+def compute_heat_flux_conduction(
+    df: pd.DataFrame,
+    depth1: float = 0.05,
+    depth2: float = 0.10,
+    col_T1: str = "T5cm",
+    col_T2: str = "T10cm",
+    col_theta1: str = "VWC5cm",
+    col_theta2: str = "VWC10cm",
+    porosity: float = 0.40,
+    k_dry: float = 0.25,
+    k_sat: float = 1.50,
+) -> pd.Series:
+    """
+    Estimate near-surface soil heat flux using Fourier’s law.
+
+    This “gradient” approach computes conductive ground-heat flux
+    :math:`G` between two depths by multiplying the vertical
+    temperature gradient with an **effective** thermal conductivity
+    that varies with volumetric water content (VWC).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Time-indexed data containing at least the four columns
+        specified by *col_T1*, *col_T2*, *col_theta1*, and
+        *col_theta2*. The index spacing defines the temporal
+        resolution of the output.
+    depth1, depth2 : float, default (0.05, 0.10)
+        Sensor depths (m).  `depth2` must be **greater** (deeper)
+        than `depth1`.
+    col_T1, col_T2 : str, default ("T5cm", "T10cm")
+        Column names for temperature (°C or K) at `depth1` and
+        `depth2`.
+    col_theta1, col_theta2 : str, default ("VWC5cm", "VWC10cm")
+        Column names for volumetric water content (m³ m⁻³) at
+        `depth1` and `depth2`.
+    porosity : float, default 0.40
+        Soil total porosity (saturated VWC, m³ m⁻³).
+    k_dry : float, default 0.25
+        Dry-soil thermal conductivity (W m⁻¹ K⁻¹).
+    k_sat : float, default 1.50
+        Saturated-soil thermal conductivity (W m⁻¹ K⁻¹).
+
+    Returns
+    -------
+    pandas.Series
+        Half-hourly (or whatever the index step is) ground-heat-flux
+        series with name ``"G_conduction"``. Units are W m⁻².
+        Positive values indicate **downward** flux.
+
+    Notes
+    -----
+    The effective thermal conductivity is computed by a simple linear
+    mixing model:
+
+    .. math::
+
+        \\lambda_\\text{eff} = k_\\text{dry} +
+        \\frac{\\bar{\\theta}}{\\phi}
+        \\bigl(k_\\text{sat} - k_\\text{dry}\\bigr),
+
+    where :math:`\\bar{\\theta}` is the mean VWC of the two depths and
+    :math:`\\phi` is porosity.  More sophisticated models
+    (e.g. Johansen, de Vries) can be substituted if site-specific
+    calibration is available.
+
+    References
+    ----------
+    * Campbell & Norman (2012) *An Introduction to Environmental
+      Biophysics*, ch. 7.
+    * Gao et al. (2017) Agricultural and Forest Meteorology,
+      240 – 241, 194–204.
+
+    Examples
+    --------
+    >>> G = compute_heat_flux_conduction(df_site,
+    ...                                   depth1=0.05, depth2=0.10,
+    ...                                   col_T1="T_05",
+    ...                                   col_T2="T_10",
+    ...                                   col_theta1="VWC_05",
+    ...                                   col_theta2="VWC_10")
+    >>> G.plot(title="Soil heat flux (gradient method)")
+    """
+    # 1. Effective thermal conductivity based on average moisture between the two depths
+    theta_avg = (df[col_theta1] + df[col_theta2]) / 2.0
+    frac_sat = np.clip(
+        theta_avg / porosity, 0, 1
+    )  # fraction of pore space filled with water
+    lambda_eff = (
+        k_dry + (k_sat - k_dry) * frac_sat
+    )  # interpolate between dry and saturated
+
+    # 2. Temperature gradient dT/dz (K/m). Depth increases downward.
+    dT = df[col_T2] - df[col_T1]  # temperature difference
+    dz = depth2 - depth1
+    grad_T = dT / dz
+
+    # 3. Fourier’s Law: G = -λ * dT/dz
+    G = -lambda_eff * grad_T
+    return pd.Series(G, index=df.index, name="G_conduction")
+
+
+def compute_heat_flux_calorimetric(
+    df: pd.DataFrame,
+    depth_levels: "list[float]",
+    T_cols: "list[str]",
+    theta_cols: "list[str]",
+    C_dry: float = 2.1e6,
+    C_w: float = 4.2e6,
+) -> pd.Series:
+    """
+    Calculate surface soil heat flux via the calorimetric (heat-storage) method.
+
+    The calorimetric method integrates the transient change in heat
+    *storage* within a multilayer soil column.  For a surface-to-depth
+    layer of thickness :math:`z_{\\text{ref}}`, the surface flux
+    :math:`G_0` is approximated by
+
+    .. math::
+
+        G_0 \\;\\approx\\; \\frac{\\Delta Q}{\\Delta t}
+        \\;=\\; \\frac{1}{\\Delta t}
+        \\sum_{i=1}^{N_\\text{layers}}
+        C_i \\, \\Delta T_i \\, \\Delta z_i,
+
+    where :math:`C_i` is volumetric heat capacity
+    (J m⁻³ K⁻¹), :math:`\\Delta T_i` is the average temperature change
+    (K) in layer *i*, and :math:`\\Delta z_i` is layer thickness (m).
+    No heat-flux-plate reading is required if the deepest
+    measurement depth lies below the diurnal damping depth such that
+    :math:`G(z_{\\text{ref}}) \\approx 0`.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Time-indexed data containing temperature and VWC columns for
+        **all** depths specified in *T_cols* and *theta_cols*.  Index
+        spacing sets the output time step.
+    depth_levels : list of float
+        Depths (m) corresponding *in order* to the entries in
+        *T_cols* and *theta_cols*. Must be strictly increasing.
+    T_cols : list of str
+        Column names for soil temperatures (°C or K) at
+        `depth_levels`.
+    theta_cols : list of str
+        Column names for volumetric water content (m³ m⁻³) at
+        `depth_levels`.
+    C_dry : float, default 2.1e6
+        Volumetric heat capacity of dry soil matrix
+        (J m⁻³ K⁻¹).
+    C_w : float, default 4.2e6
+        Volumetric heat capacity of liquid water
+        (J m⁻³ K⁻¹).
+
+    Returns
+    -------
+    pandas.Series
+        Surface ground-heat-flux series, ``"G_calorimetric"`` (W m⁻²).
+        Positive values denote **downward** flux.  The first time step
+        is set to *NaN* because a preceding interval is required.
+
+    Notes
+    -----
+    **Heat capacity model**
+
+    A simple two-component mixture is assumed:
+
+    .. math::
+
+        C = (1 - \\theta)\\,C_{\\text{dry}} + \\theta\\,C_w.
+
+    If bulk density or mineral fraction data are available, replace
+    this linear approximation with a mass-weighted formulation.
+
+    **Boundary assumption**
+
+    The deepest temperature is treated as a “no-flux” boundary (storage
+    only).  If diurnal waves penetrate deeper at your site, include an
+    additional flux-plate term or extend `depth_levels` downward.
+
+    References
+    ----------
+    * Mayocchi & Bristow (1995) Agricultural and Forest
+      Meteorology 75, 93–109.
+    * Oke (2002) *Boundary-Layer Climates*, 2nd ed., §2.3.
+    * Fluxnet2015 “G” best-practice guide
+      (https://fluxnet.org/sites/default/files/soil_heat_flux_guide.pdf).
+
+    Examples
+    --------
+    >>> depths = [0.05, 0.10, 0.20, 0.50]          # m
+    >>> Tcols  = ["T5", "T10", "T20", "T50"]       # °C
+    >>> Vcols  = ["VWC5", "VWC10", "VWC20", "VWC50"]
+    >>> G0 = compute_heat_flux_calorimetric(df_site,
+    ...                                     depths, Tcols, Vcols)
+    >>> G0.resample("D").mean().plot()
+    >>> plt.ylabel("Daily mean G₀ (W m$^{-2}$)")
+    """
+    # --- basic error checks -------------------------------------------------
+    if not (len(depth_levels) == len(T_cols) == len(theta_cols)):
+        raise ValueError("depth_levels, T_cols, and theta_cols must be the same length")
+
+    n = len(depth_levels)
+    dt_seconds = (df.index[1] - df.index[0]).total_seconds()
+
+    # volumetric heat capacity matrix (DataFrame, J m⁻³ K⁻¹)
+    C_depth = (1.0 - df[theta_cols]) * C_dry + df[theta_cols] * C_w
+
+    G0 = [np.nan]  # first element is undefined
+    for i in range(1, len(df)):
+        dQ = 0.0  # J m⁻²
+        for j in range(1, n):
+            z_top, z_bot = depth_levels[j - 1], depth_levels[j]
+            dz = z_bot - z_top
+
+            # layer-mean heat capacity over interval
+            C_layer = 0.25 * (
+                C_depth.iloc[i - 1, j - 1]  # type: ignore
+                + C_depth.iloc[i - 1, j]  # type: ignore
+                + C_depth.iloc[i, j - 1]  # type: ignore
+                + C_depth.iloc[i, j]  # type: ignore
+            )
+
+            # layer-mean temperature change over interval
+            dT_top = df[T_cols[j - 1]].iat[i] - df[T_cols[j - 1]].iat[i - 1]
+            dT_bot = df[T_cols[j]].iat[i] - df[T_cols[j]].iat[i - 1]
+            dT_layer = 0.5 * (dT_top + dT_bot)
+
+            dQ += C_layer * dT_layer * dz
+
+        G0.append(dQ / dt_seconds)  # W m⁻²
+
+    return pd.Series(G0, index=df.index, name="G_calorimetric")
+
 
 def temperature_gradient(T_upper, T_lower, depth_upper, depth_lower):
     """

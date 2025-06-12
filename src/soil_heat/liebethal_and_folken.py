@@ -95,15 +95,15 @@ def reference_ground_heat_flux(
     ndarray, shape (n_t,)
         Instantaneous ground‑heat flux *G₀,M* (W m⁻²). Positive = downward.
     """
-    depths = np.asarray(depths, dtype=float)
-    times = np.asarray(times, dtype=float)
+    depths = np.asarray(depths, dtype=float)  # type: ignore
+    times = np.asarray(times, dtype=float)  # type: ignore
     T = np.asarray(temp_profile, dtype=float)
 
-    if T.shape != (depths.size, times.size):
+    if T.shape != (depths.size, times.size):  # type: ignore
         raise ValueError("temp_profile shape must be (n_depths, n_times)")
 
     # ------------ gradient term
-    dT_dz = _central_gradient(T, depths[:, None])  # shape (n_z, n_t)
+    dT_dz = _central_gradient(T, depths[:, None])  # type: ignore  shape (n_z, n_t)
 
     # Interpolate ∂T/∂z to the gradient_depth
     grad_T_at_z = np.interp(
@@ -115,12 +115,12 @@ def reference_ground_heat_flux(
     )
 
     # ------------ storage (calorimetry) term
-    dT_dt = _central_gradient(T, times[None, :])  # shape (n_z, n_t)
+    dT_dt = _central_gradient(T, times[None, :])  # type: ignore shape (n_z, n_t)
 
     # Integrate over depth using trapezoidal rule (axis=0 is depth)
     storage = cv * np.trapezoid(dT_dt, depths, axis=0)
 
-    return -thermal_conductivity * grad_T_at_z + storage
+    return -thermal_conductivity * grad_T_at_z + storage  # type: ignore
 
 
 # ---------------------------------------------------------------------
