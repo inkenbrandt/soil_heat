@@ -44,16 +44,10 @@ exclude_patterns = [
     ".DS_Store",
 ]  # Exclude the tests directory and _build directory
 
-napoleon_google_docstring = False  # You can still use Google-style if True
 napoleon_numpy_docstring = True  # Set this to True for NumPy-style
 
 napoleon_include_init_with_doc = True
-napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = True
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
-napoleon_use_ivar = False
 
 autosummary_generate = True  # Automatically generate .rst files for modules
 autosummary_imported_members = True

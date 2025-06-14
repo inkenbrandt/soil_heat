@@ -1,3 +1,5 @@
+.. include:: ../temp_lag_and_period.rst
+
 Amplitude and Phase Characteristics of Diurnal Soil-Temperature Waves
 =====================================================================
 

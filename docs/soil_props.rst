@@ -1,3 +1,5 @@
+.. include:: ../soil_props.rst
+
 Soil Thermal Conductivity and Heat-Flux Estimation
 ==================================================
 

@@ -8,6 +8,9 @@ Welcome to Soil Heat's documentation!
    readme
    installation
    usage
+   G_ranges
+   soil_props
+   temp_lag_and_period
    modules
    contributing
    authors
