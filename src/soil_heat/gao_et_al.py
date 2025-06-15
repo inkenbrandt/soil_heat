@@ -220,11 +220,11 @@ def volumetric_heat_capacity(
 
     Examples
     --------
-    Scalar inputs
+    >>> #Scalar inputs
     >>> volumetric_heat_capacity(0.8, 1.2e-6)
     666666.666...
 
-    Vectorized inputs
+    >>> #Vectorized inputs
     >>> lambda_vals = np.array([0.5, 0.6, 0.7])
     >>> diffusivities = np.array([1.1e-6, 1.2e-6, 1.3e-6])
     >>> volumetric_heat_capacity(lambda_vals, diffusivities)
@@ -308,13 +308,13 @@ def nme(
     >>> nme(4.5, 5.0)
     10.0
 
-    Vectors
+    >>> # Vectors
     >>> calc = np.array([1.0, 2.1, 3.2])
     >>> meas = np.array([1.2, 2.0, 3.0])
     >>> nme(calc, meas)
     4.7619...
 
-    Broadcasting (scalar vs array)
+    >>> # Broadcasting (scalar vs array)
     >>> nme(2.0, np.array([1.5, 2.5, 2.0]))
     16.6666...
     """
@@ -394,11 +394,11 @@ def rmse(
 
     Examples
     --------
-    Scalar inputs
+    >>> # Scalar inputs
     >>> rmse(4.5, 5.0)
     0.5
 
-    Vector inputs
+    >>> # Vector inputs
     >>> calc = np.array([2.1, 3.0, 4.2])
     >>> meas = np.array([2.0, 3.5, 4.0])
     >>> rmse(calc, meas)
@@ -670,7 +670,7 @@ def force_restore_gz(
     >>> force_restore_gz(Cv, dTgdt, Tg, Tg_bar)
     19.3...   # W m-2
 
-    Vectorized daily record
+    >>> #Vectorized daily record
     >>> cv_arr = np.full(1440, 2.2e6)
     >>> dT_arr = np.gradient(np.sin(np.linspace(0, 2*np.pi, 1440))) / 60
     >>> Gz_ts  = force_restore_gz(cv_arr, dT_arr, 298+2*np.sin(...),
@@ -959,7 +959,7 @@ def heusinkveld_gz(
     * **Vectorization** – Internally, the harmonic index axis has length
       *n_max* (``n = np.arange(1, n_max+1)``).  All other dimensions come
       from broadcasting *A_n*, *Phi_n*, *k_s_val*, *lambda_s_val*, and
-      *t* (if vectorised in the caller).
+      *t* (if vectorized in the caller).
     * **Units** – Consistency with SI units is assumed.
     * **Interpretation** – The prefactor ``λ_s / (10 π)`` appears in
       H04’s original derivation.  If you adopt a different convention
@@ -1243,7 +1243,7 @@ def leuning_gz(
     >>> leuning_gz(g_zr=-12.0, z=0.05, zr=0.08, d=0.07)
     -18.841...
 
-    Vectorised daily time series
+    Vectorized daily time series
     >>> g_plate = np.random.normal(-10, 3, 1440)      # W m-2 @ 8 cm
     >>> d       = 0.07                                # m
     >>> Gz_5cm  = leuning_gz(g_plate, z=0.05, zr=0.08, d=d)
@@ -1351,7 +1351,7 @@ def simple_measurement_gz(
       mid-point of the first two temperature samples
       ``t[0] … t[1]``; therefore the result is shifted **½ Δt** relative
       to the plate-flux time stamps.
-    * **Vectorisation** – All calculations are fully vectorised using
+    * **Vectorisation** – All calculations are fully vectorized using
       NumPy broadcasting.  Inputs are internally cast to
       :class:`numpy.ndarray`.
     * **Applicability** – Best suited to homogeneous layers with
@@ -1492,7 +1492,7 @@ def wbz12_g_gz(
     * A very small term ``+ 1e-12`` is added under the square root to
       avoid division by zero at *t = t₀*.
     * The complementary error function is evaluated with
-      :pyfunc:`numpy.erfc`, which is vectorised and avoids the SciPy
+      :pyfunc:`numpy.erfc`, which is vectorized and avoids the SciPy
       dependency.
 
     References
@@ -1682,7 +1682,7 @@ def wbz12_s_gz(
             "Inputs Ag, ks_val, t, and eps are not broadcast-compatible."
         ) from exc
 
-    # Vectorised calculation ------------------------------------------------
+    # vectorized calculation ------------------------------------------------
     # Prefactor & steady sinusoidal term
     eta = (zr - z) * np.sqrt(omega / (2.0 * ks_b))
     prefactor = Ag_b * np.exp(-eta)
@@ -1707,7 +1707,7 @@ def wbz12_s_gz(
     # Allocate output
     result = np.empty_like(Ag_b, dtype=float)
 
-    # Iterate over flattened broadcast shape (quad is not vectorised)
+    # Iterate over flattened broadcast shape (quad is not vectorized)
     it = np.nditer(
         [Ag_b, ks_b, t_b, eps_b, result],
         flags=["multi_index"],
@@ -1929,7 +1929,7 @@ def exact_gz(
 
     Examples
     --------
-    Scalar example
+    >>> # Scalar example
     >>> exact_gz(
     ...     z=0.05,
     ...     AT=8.0,
@@ -1939,7 +1939,7 @@ def exact_gz(
     ... )
     21.52...
 
-    Vectorised daily cycle
+    >>> # Vectorized daily cycle
     >>> t_day = np.linspace(0, 86400, 97)           # 15-min resolution
     >>> Gz = exact_gz(
     ...     z=0.10,
