@@ -304,7 +304,7 @@ def nme(
 
     Examples
     --------
-    Single values
+    >>> # Single values
     >>> nme(4.5, 5.0)
     10.0
 
@@ -404,7 +404,7 @@ def rmse(
     >>> rmse(calc, meas)
     0.2645...
 
-    Broadcasting
+    >>> # Broadcasting
     >>> rmse(3.0, np.array([2.5, 3.5, 3.0]))
     0.4082...
     """
@@ -853,7 +853,7 @@ def gao2010_gz(
 
     Examples
     --------
-    Daily cycle at 5 cm depth
+    >>> # Daily cycle at 5 cm depth
     >>> AT      = 8.0                           # K
     >>> lambda_ = 1.2                           # W m-1 K-1
     >>> kappa   = 1.0e-6                        # m2 s-1
@@ -974,7 +974,7 @@ def heusinkveld_gz(
 
     Examples
     --------
-    Daily cycle with three harmonics
+    >>> # Daily cycle with three harmonics
     >>> A = np.array([10, 4, 1.5])          # K
     >>> Phi = np.array([0, -np.pi/6, np.pi/8])
     >>> Gz = heusinkveld_gz(A, Phi, n_max=3,
@@ -1026,27 +1026,133 @@ def heusinkveld_gz(
 # -- 3.5 Hsieh 2009 fractional derivative (Eq. 5) ------------------------------
 
 
-def hsieh2009_gz(tz_series, time_series, cv_series, ks_series):
-    """Half‑order integral solution (Eq. 5).
-
-    tz_series, cv_series, ks_series must be monotonically increasing in *time_series*.
+def hsieh2009_gz(
+    tz_series: np.ndarray | list | tuple,
+    time_series: np.ndarray | list | tuple,
+    cv_series: np.ndarray | list | tuple,
+    ks_series: np.ndarray | list | tuple,
+) -> float:
     """
-    tz_series = np.asarray(tz_series)
-    time_series = np.asarray(time_series)
-    cv_series = np.asarray(cv_series)
-    ks_series = np.asarray(ks_series)
+    Compute **soil heat flux** at the end of a temperature record
+    using the *half-order integral* (Hsieh et al., 2009, Eq. 5).
 
-    t = time_series[-1]
-    sum_int = 0.0
+    The method exploits the analytical solution of the one-dimensional
+    heat-conduction equation for a semi-infinite medium, leading to a
+    convolution integral of order ½ that relates the time series of
+    near-surface soil temperature to the downward heat flux:
+
+    .. math::
+
+        G(t_N) \;=\;
+        2\\sqrt{\\frac{k_s(t_N)\\,C_v(t_N)}{\\pi}}\\;
+        \\int_{t_0}^{t_N}
+            \\frac{\\partial T(z,t')}{\\partial t'}
+            \\left(t_N - t'\\right)^{-1/2}\\,dt'
+
+    In discrete form with linear interpolation between measurements
+    :math:`t_i \\;(i = 0,\\dots,N)`,
+
+    .. math::
+
+        \\int_{t_0}^{t_N}\\!
+            \\frac{dT}{dt'}\\,(t_N-t')^{-1/2}dt'
+        \\approx
+        \\sum_{i=0}^{N-1}
+          \\frac{\\Delta T_i}{\\Delta t_i}\\!
+          \\left[(t_N-t_i)^{1/2} - (t_N-t_{i+1})^{1/2}\\right],
+
+    where :math:`\\Delta T_i = T_{i+1}-T_i` and
+    :math:`\\Delta t_i = t_{i+1}-t_i`.
+
+    The final scalar result corresponds to the flux at
+    :math:`t_N\\;(=\\text{time_series}[-1])`.
+
+    Parameters
+    ----------
+    tz_series : array_like
+        Near-surface (or shallow-depth) soil temperature observations
+        *T(z,t)* (K).  Length **N ≥ 2**.
+    time_series : array_like
+        Strictly monotonically increasing time stamps (s) matching
+        `tz_series`.  Same length **N**.
+    cv_series : array_like
+        Volumetric heat capacity *C_v* (J m⁻³ K⁻¹) at each
+        time stamp.  Same length **N**.
+    ks_series : array_like
+        Thermal diffusivity *k_s* (m² s⁻¹) at each time stamp.
+        Same length **N**.
+
+    Returns
+    -------
+    float
+        Soil heat flux *G(t_N)* at the final time point (W m⁻²).
+
+    Raises
+    ------
+    ValueError
+        * If the four series differ in length or have fewer than two
+          samples.
+        * If `time_series` is not strictly increasing.
+        * If any element of `cv_series` or `ks_series` is non-positive.
+
+    Notes
+    -----
+    * The algorithm uses a forward finite-difference for
+      :math:`dT/dt'` and trapezoidal integration over each interval
+      *[t_i, t_{i+1}]*.
+    * Only the latest values of *k_s* and *C_v* are used, consistent
+      with the Hsieh et al. derivation.  Replace with a time-variable
+      kernel if property changes are large over the record.
+    * All inputs are cast to :class:`numpy.ndarray` with
+      ``dtype=float``.
+
+    References
+    ----------
+    Hsieh, C.-I., Katul, G., & Chi, T.-C. (2009).
+    *Retrieval of soil heat flux from soil temperature data by the
+    continuous-time heat equation model.*
+    **Water Resources Research**, 45, W08433.
+    https://doi.org/10.1029/2009WR007891
+
+    Examples
+    --------
+    >>> times  = np.array([0, 600, 1200, 1800])        # every 10 min
+    >>> temps  = np.array([292.5, 293.0, 293.6, 294.0])  # K
+    >>> Cv     = np.full_like(temps, 2.3e6)            # J m-3 K-1
+    >>> ks     = np.full_like(temps, 1.1e-6)           # m2 s-1
+    >>> hsieh2009_gz(temps, times, Cv, ks)
+    -2.13...
+    """
+    # ---- convert & validate ------------------------------------------------
+    tz_series = np.asarray(tz_series, dtype=float)
+    time_series = np.asarray(time_series, dtype=float)
+    cv_series = np.asarray(cv_series, dtype=float)
+    ks_series = np.asarray(ks_series, dtype=float)
+
+    if not (
+        tz_series.size == time_series.size == cv_series.size == ks_series.size >= 2
+    ):
+        raise ValueError("All series must share length ≥ 2.")
+
+    if not np.all(np.diff(time_series) > 0):
+        raise ValueError("'time_series' must be strictly increasing.")
+
+    if np.any(cv_series <= 0) or np.any(ks_series <= 0):
+        raise ValueError("'cv_series' and 'ks_series' must be positive.")
+
+    # ---- half-order integral ----------------------------------------------
+    tN = time_series[-1]
+    integral = 0.0
     for i in range(len(time_series) - 1):
-        si, sip1 = time_series[i], time_series[i + 1]
-        delta_tz = tz_series[i + 1] - tz_series[i]
-        denom = sip1 - si
-        term = delta_tz / denom * (np.sqrt(t - si) - np.sqrt(t - sip1))
-        sum_int += term
-    ks_t = ks_series[-1]
-    cv_t = cv_series[-1]
-    return 2 * np.sqrt(ks_t * cv_t / np.pi) * sum_int
+        t_i, t_ip1 = time_series[i], time_series[i + 1]
+        dT = tz_series[i + 1] - tz_series[i]
+        dt = t_ip1 - t_i
+        integral += (dT / dt) * (np.sqrt(tN - t_i) - np.sqrt(tN - t_ip1))
+
+    ks_N = ks_series[-1]
+    cv_N = cv_series[-1]
+
+    return 2.0 * np.sqrt(ks_N * cv_N / np.pi) * integral
 
 
 # -- 3.6 Leuning 2012 (Eq. 6–7) -------------------------------------------------
@@ -1136,7 +1242,7 @@ def leuning_damping_depth(
     >>> round(d, 4)
     0.0721
 
-    Broadcasting with arrays
+    >>> #Broadcasting with arrays
     >>> depths = np.array([0.05, 0.10, 0.20])
     >>> amps   = np.array([8.0, 4.0, 1.5])
     >>> d_arr  = leuning_damping_depth(depths, 0.02, amps, 10.0)
@@ -1239,11 +1345,11 @@ def leuning_gz(
 
     Examples
     --------
-    Single depth conversion
+    >>> # Single depth conversion
     >>> leuning_gz(g_zr=-12.0, z=0.05, zr=0.08, d=0.07)
     -18.841...
 
-    Vectorized daily time series
+    >>> # Vectorized daily time series
     >>> g_plate = np.random.normal(-10, 3, 1440)      # W m-2 @ 8 cm
     >>> d       = 0.07                                # m
     >>> Gz_5cm  = leuning_gz(g_plate, z=0.05, zr=0.08, d=d)
@@ -1291,13 +1397,10 @@ def simple_measurement_gz(
 
     .. math::
 
-        G(z, t_j)
-        = G(z_r, t_j)
-        + \sum_{l=1}^{N}
-          C_{v,l}\,\Delta z_l\,
-          \\frac{\\Delta T_{l,j} + \tfrac{1}{2}
-                 \bigl(\\Delta T_{l,j} - \\Delta T_{l,j-1}\\bigr)}
-               {\\Delta t}
+        G(z,t_j) \;=\; G(z_r,t_j)
+        \;+\; \sum_{l=1}^{N} C_{v,l}\,\Delta z_l\,
+                \frac{\Delta T_{l,j} + \frac{1}{2}\bigl(\Delta T_{l,j} - \Delta T_{l,j-1}\bigr)}
+                    {\Delta t}
 
     where
 
@@ -1818,7 +1921,7 @@ def exact_temperature_gz(
 
     Examples
     --------
-    Daily cycle at 10 cm depth
+    >>> # Daily cycle at 10 cm depth
     >>> z      = 0.10                            # m
     >>> AT     = 8.0                             # K
     >>> d      = 0.12                            # m
