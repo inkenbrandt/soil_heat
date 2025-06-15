@@ -2,7 +2,7 @@
 
 __author__ = """Paul Inkenbrandt"""
 __email__ = "paulinkenbrandt@utah.gov"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .soil_heat import *
 from .gao_et_al import *
