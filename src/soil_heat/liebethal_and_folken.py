@@ -1,4 +1,4 @@
-"""ground_heat_flux.py
+"""liebethal_and_folken.py
 ==================================
 A collection of Python functions that implement every numbered
 equation from Liebethal & Foken (2006) *Evaluation of six

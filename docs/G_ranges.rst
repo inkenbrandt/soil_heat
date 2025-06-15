@@ -1,5 +1,3 @@
-.. include:: ../G_ranges.rst
-
 Soil Heat Flux in Arid Crop Fields
 ==================================
 

@@ -108,3 +108,8 @@ ENV/
 .vscode/
 .idea/
 
+/.git
+/.idea
+/.editorconfig
+/.gitignore
+/src/soil_heat/__pycache__
