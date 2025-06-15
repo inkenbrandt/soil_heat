@@ -15,16 +15,25 @@ release = soil_heat.__version__
 
 extensions = [
     "sphinx.ext.autodoc",
-    "numpydoc",
     "sphinx.ext.autosummary",
-    "sphinxcontrib.bibtex",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",  # NumPy / Google style parsing
     "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.mathjax",
     "myst_parser",
     "nbsphinx",
+    "sphinxcontrib.bibtex",
 ]
+autosummary_generate = True
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,  # show even undocumented vars (helps debugging)
+    "inherited-members": True,
+    "show-inheritance": True,
+}
+napoleon_numpy_docstring = True  # you already use NumPy format
+
 
 # Tell myst-parser to assign header anchors for h1-h3.
 myst_heading_anchors = 3
@@ -47,6 +56,11 @@ autosummary_imported_members = True
 bibtex_bibfiles = ["refs.bib"]  # Your BibTeX file(s)
 bibtex_reference_style = "author_year"  # Use author-year style for citations
 bibtex_default_style = "plain"
+
+extensions.append("autoapi.extension")
+autoapi_type = "python"
+autoapi_dirs = ["../src"]
+autoapi_keep_files = True  # useful for diffing-by-git
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]

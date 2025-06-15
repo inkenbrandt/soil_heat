@@ -1058,7 +1058,7 @@ def calculate_thermal_diffusivity_for_pair(df, col1, col2, z1, z2, period=86400)
 
     Methods
     -------
-    **1. Log-Amplitude (α\_log)**
+    1. Log-Amplitude (α\_log)
         Uses the decay of the harmonic amplitude with depth:
 
         .. math::
@@ -1066,7 +1066,7 @@ def calculate_thermal_diffusivity_for_pair(df, col1, col2, z1, z2, period=86400)
             α\\_{\\text{log}} = \\frac{(z_2 - z_1)^2}
                                      {2\\,P\\;\\ln\\bigl(A_1 / A_2\\bigr)}
 
-    **2. Amplitude Ratio (α\_amp)**
+    2. Amplitude Ratio (α\_amp)
         Algebraically identical to the log-amplitude method but expressed
         directly in terms of the two amplitudes:
 
@@ -1077,7 +1077,7 @@ def calculate_thermal_diffusivity_for_pair(df, col1, col2, z1, z2, period=86400)
 
         where ``ω = 2π / P`` is the angular frequency.
 
-    **3. Phase Lag (α\_lag)**
+    3. Phase Lag (α\_lag)
         Relates the travel time (phase shift) of the temperature wave:
 
         .. math::

@@ -1,5 +1,6 @@
 sphinx
 sphinx-autodoc-typehints
+sphinx-autoapi
 sphinx-rtd-theme
 scipy
 pandas
