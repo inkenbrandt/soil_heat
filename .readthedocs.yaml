@@ -3,12 +3,6 @@
 
 # Required
 version: 2
-python:
-  version: "3.12"
-  install:
-    - method: pip
-      path: .
-    - requirements: docs/requirements.txt   # Optional, but nice and explicit
 
 # Set the OS, Python version, and other tools you might need
 build:
@@ -19,5 +13,3 @@ build:
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
    configuration: docs/conf.py
-
-        
