@@ -1,39 +1,59 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "soil_heat"
 version = "0.1.0"
 description = "Python calculations on Campbell Scientific, Inc. SoilVUE timeseries data to calculate soil heat flux."
-readme = "README.rst"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT license"}
 authors = [
   {name = "Paul Inkenbrandt", email = "paulinkenbrandt@utah.gov"}
 ]
 maintainers = [
   {name = "Paul Inkenbrandt", email = "paulinkenbrandt@utah.gov"}
 ]
-classifiers = [
-
-]
-license = {text = "MIT license"}
 dependencies = [
-  
+    "numpy>=1.20",
+    "pandas>=1.3",
+    "scipy>=1.7",
+    "matplotlib>=3.4",
 ]
-
-[project.optional-dependencies]
-dev = [
-    "coverage",  # testing
-    "mypy",  # linting
-    "pytest",  # testing
-    "ruff"  # linting
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
 ]
 
 [project.urls]
+"Homepage" = "https://github.com/inkenbrandt/soil_heat"
+"Documentation" = "https://fluxfootprints.readthedocs.io/en/stable/"
 
-bugs = "https://github.com/inkenbrandt/soil_heat/issues"
-changelog = "https://github.com/inkenbrandt/soil_heat/blob/master/changelog.md"
-homepage = "https://github.com/inkenbrandt/soil_heat"
+[project.optional-dependencies]
+docs = [
+    "sphinx>=4.0",
+    "sphinx-rtd-theme>=1.0",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autodoc-typehints>=1.12",
+    "myst-parser>=0.15",
+    "numpydoc>=1.1",
+    "nbsphinx>=0.8",
+    "sphinxcontrib-bibtex>=2.4",
+    "sphinx-apidoc>=1.0",
+    "sphinx-autodoc>=1.0",
+]
+test = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+]
+
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -41,23 +61,4 @@ package-dir = {"" = "src"}
 [tool.setuptools.package-data]
 "*" = ["*.*"]
 
-
-
-
-# Mypy
-# ----
-
-[tool.mypy]
-files = "."
-
-# Use strict defaults
-strict = true
-warn_unreachable = true
-warn_no_return = true
-
-[[tool.mypy.overrides]]
-# Don't require test functions to include types
-module = "tests.*"
-allow_untyped_defs = true
-disable_error_code = "attr-defined"
 
