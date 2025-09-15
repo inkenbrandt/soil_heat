@@ -315,34 +315,76 @@ def temperature_gradient(
     >>> temperature_gradient(T_up, T_low, 0.02, 0.08)
     array([-16.66666667, -6.66666667, -3.33333333])   # °C/m
     """
+    if depth_lower <= depth_upper:
+        raise ValueError("depth_lower must be greater than depth_upper")
+
+    return (T_lower - T_upper) / (depth_lower - depth_upper)
 
 
 def soil_heat_flux(T_upper, T_lower, depth_upper, depth_lower, k):
     """
-    Calculate soil heat flux (G) using temperature gradient and thermal conductivity.
+    Calculate soil heat flux (G) using Fourier's law of heat conduction.
 
-    Parameters:
-    - T_upper: Temperature at upper depth (°C)
-    - T_lower: Temperature at lower depth (°C)
-    - depth_upper: Upper sensor depth (m)
-    - depth_lower: Lower sensor depth (m)
-    - k: Thermal conductivity (W/(m·°C))
+    This function computes the one-dimensional heat flux in the soil based on
+    the temperature gradient between two depths and the soil's thermal
+    conductivity. The formula used is:
 
-    Returns:
-    - Soil heat flux (W/m^2)
+    .. math::
+
+        G = -k \\frac{\\Delta T}{\\Delta z}
+
+    where :math:`G` is the soil heat flux, :math:`k` is the thermal
+    conductivity, :math:`\\Delta T` is the temperature difference, and
+    :math:`\\Delta z` is the distance between the two measurement depths.
+
+    Parameters
+    ----------
+    T_upper : float or array_like
+        Temperature at the upper depth (°C or K).
+    T_lower : float or array_like
+        Temperature at the lower depth (°C or K).
+    depth_upper : float
+        Depth of the upper sensor (m, positive downward).
+    depth_lower : float
+        Depth of the lower sensor (m, positive downward).
+    k : float or array_like
+        Thermal conductivity of the soil layer between the sensors (W m⁻¹ K⁻¹).
+
+    Returns
+    -------
+    float or array_like
+        The calculated soil heat flux (W m⁻²). A positive value indicates
+        a downward flux (from the surface into the soil).
     """
     return -k * temperature_gradient(T_upper, T_lower, depth_upper, depth_lower)
 
 
 def volumetric_heat_capacity(theta_v):
     """
-    Estimate volumetric heat capacity Cv (J/(m³·°C)) from soil moisture.
+    Estimate volumetric heat capacity (Cv) from soil moisture content.
 
-    Parameters:
-    - theta_v: Volumetric water content (decimal fraction, e.g., 0.20 for 20%)
+    This function uses a simple mixing model to estimate the volumetric heat
+    capacity of moist soil. It assumes the soil is a two-component mixture
+    of dry soil and water. The formula is:
 
-    Returns:
-    - Volumetric heat capacity (kJ/(m³·°C))
+    .. math::
+
+        C_v = (1 - \\theta_v) C_{soil} + \\theta_v C_{water}
+
+    where :math:`\\theta_v` is the volumetric water content, and
+    :math:`C_{soil}` and :math:`C_{water}` are the volumetric heat
+    capacities of dry soil and water, respectively.
+
+    Parameters
+    ----------
+    theta_v : float or array_like
+        Volumetric water content (m³ m⁻³). This is a decimal fraction,
+        e.g., 0.20 for 20% water content.
+
+    Returns
+    -------
+    float or array_like
+        The estimated volumetric heat capacity (kJ m⁻³ K⁻¹).
     """
     C_soil = 1942  # dry soil heat capacity kJ/(m³·°C)
     C_water = 4186  # water heat capacity kJ/(m³·°C)
@@ -812,18 +854,42 @@ def thermal_diffusivity_amplitude(
 
 def thermal_diffusivity_lag(delta_t, z1, z2, period=86400):
     """
-    Estimate thermal diffusivity from phase lag.
+    Estimate soil thermal diffusivity (α) from the phase lag of a temperature wave.
 
-    Parameters:
-    - delta_t: Time lag between peaks at two depths (seconds)
-    - z1, z2: Depths (m)
-    - period: Time period of wave (default = 86400 s for daily cycle)
+    This method calculates thermal diffusivity based on the time it takes for a
+    temperature wave (e.g., the diurnal cycle) to travel between two depths in
+    the soil. The formula is derived from the analytical solution to the
+    one-dimensional heat conduction equation for a periodic boundary condition:
 
-    Returns:
-    - Thermal diffusivity α (m²/s)
+    .. math::
 
-    Citation:
-    S.V. Nerpin, and A.F. Chudnovskii, Soil physics, (Moscow: Nauka) p 584, 1967 (in Russian)
+        \\alpha = \\frac{P (z_2 - z_1)^2}{4 \\pi (\\Delta t)^2}
+
+    where :math:`P` is the period of the wave, :math:`(z_2 - z_1)` is the
+    distance between the sensors, and :math:`\\Delta t` is the time lag of
+    the temperature peak between the two depths.
+
+    Parameters
+    ----------
+    delta_t : float or array_like
+        Time lag between the temperature peaks at two depths (seconds).
+    z1 : float
+        Depth of the upper sensor (m, positive downward).
+    z2 : float
+        Depth of the lower sensor (m, positive downward).
+    period : int, optional
+        The period of the temperature wave (seconds). The default is 86400,
+        which corresponds to the daily (diurnal) cycle.
+
+    Returns
+    -------
+    float or array_like
+        The calculated thermal diffusivity (α) in m² s⁻¹.
+
+    References
+    ----------
+    Nerpin, S.V., and Chudnovskii, A.F. (1967). *Soil physics*.
+    (Moscow: Nauka) p 584. (In Russian)
     """
 
     alpha = (period / (4 * np.pi)) * (z2 - z1) ** 2 / (delta_t) ** 2

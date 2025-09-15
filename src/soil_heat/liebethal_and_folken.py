@@ -6,7 +6,7 @@ parameterization approaches for the ground heat flux*.
 
 Each public function is named after the paper section and
 equation number for easy cross‑referencing.  Helper utilities
-for finite‐difference gradients and unit handling are provided
+for finite‑difference gradients and unit handling are provided
 at the end of the module.
 
 References
@@ -27,7 +27,7 @@ from typing import Sequence, Tuple
 
 
 def _central_gradient(y: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Central finite‑difference gradient with edge‐order 1.
+    """Central finite‑difference gradient with edge‑order 1.
 
     Parameters
     ----------
@@ -67,60 +67,77 @@ def reference_ground_heat_flux(
     thermal_conductivity: float,
     gradient_depth: float = 0.20,
 ) -> np.ndarray:
-    """Compute the reference ground‑heat flux *G₀,M* (Eq. 1).
+    """
+    Compute the reference ground‑heat flux *G₀,M* using the
+    gradient method combined with calorimetry for heat storage
+    (Liebethal & Foken 2006, Eq. 1).
 
-    Equation
-    --------
-    G₀,M(t) = -λ ∂T/∂z |_(z=0.2 m) + ∫_{z=0}^{0.2 m} c_v ∂T/∂t dz
+    The method combines the conductive heat flux at a reference depth
+    with the rate of change of heat stored in the soil layer above that
+    depth.
+
+    .. math::
+
+        G_{0,M}(t) = -\\lambda \\frac{\\partial T}{\\partial z} \\bigg|_{z=0.2m}
+                     + \\int_{z=0}^{0.2m} c_v \\frac{\\partial T}{\\partial t} dz
 
     Parameters
     ----------
-    temp_profile : ndarray, shape (n_z, n_t)
-        Soil temperatures (°C or K) at the depths specified by *depths* and
-        time stamps *times*.
-    depths : sequence of float, length *n_z*
-        Measurement depths (m, **positive downward**).
-    times : sequence of float, length *n_t*
-        Epoch time in **seconds** (may be monotonic pandas DatetimeIndex
-        converted via ``astype('int64')/1e9``).
+    temp_profile : numpy.ndarray
+        A 2D array of soil temperatures (°C or K) with shape
+        `(n_depths, n_times)`.
+    depths : Sequence[float]
+        A sequence of measurement depths in meters (positive downward),
+        corresponding to the rows of `temp_profile`.
+    times : Sequence[float]
+        A sequence of time stamps in seconds (e.g., Unix timestamps),
+        corresponding to the columns of `temp_profile`.
     cv : float
-        Volumetric heat capacity of the soil (J m⁻³ K⁻¹).
+        Volumetric heat capacity of the soil (J m⁻³ K⁻¹). Assumed
+        to be constant with depth.
     thermal_conductivity : float
-        Soil thermal conductivity λ (W m⁻¹ K⁻¹).
-    gradient_depth : float, default 0.20
-        Depth (m) at which the vertical gradient term is evaluated.
+        Soil thermal conductivity λ (W m⁻¹ K⁻¹). Assumed to be
+        constant with depth.
+    gradient_depth : float, optional
+        The depth (m) at which the vertical temperature gradient is
+        evaluated, by default 0.20 m.
 
     Returns
     -------
-    ndarray, shape (n_t,)
-        Instantaneous ground‑heat flux *G₀,M* (W m⁻²). Positive = downward.
+    numpy.ndarray
+        A 1D array of the instantaneous ground‑heat flux *G₀,M* (W m⁻²)
+        at the surface for each time step. Positive values indicate
+        downward flux.
+
+    Raises
+    ------
+    ValueError
+        If `temp_profile` shape does not match the lengths of `depths`
+        and `times`.
     """
-    depths = np.asarray(depths, dtype=float)  # type: ignore
-    times = np.asarray(times, dtype=float)  # type: ignore
+    depths = np.asarray(depths, dtype=float)
+    times = np.asarray(times, dtype=float)
     T = np.asarray(temp_profile, dtype=float)
 
-    if T.shape != (depths.size, times.size):  # type: ignore
+    if T.shape != (depths.size, times.size):
         raise ValueError("temp_profile shape must be (n_depths, n_times)")
 
     # ------------ gradient term
-    dT_dz = _central_gradient(T, depths[:, None])  # type: ignore  shape (n_z, n_t)
+    # Calculate spatial gradient (∂T/∂z) for each time step
+    dT_dz = _central_gradient(T, depths[:, None])  # shape (n_z, n_t)
 
-    # Interpolate ∂T/∂z to the gradient_depth
-    grad_T_at_z = np.interp(
-        gradient_depth,
-        depths,
-        dT_dz,
-        left=np.nan,
-        right=np.nan,
-    )
+    # Interpolate ∂T/∂z to the specified gradient_depth for each time step
+    grad_T_at_z = np.array([np.interp(gradient_depth, depths, dT_dz[:, i]) for i in range(T.shape[1])])
 
     # ------------ storage (calorimetry) term
-    dT_dt = _central_gradient(T, times[None, :])  # type: ignore shape (n_z, n_t)
+    # Calculate temporal gradient (∂T/∂t) for each depth
+    dT_dt = _central_gradient(T, times[None, :])  # shape (n_z, n_t)
 
-    # Integrate over depth using trapezoidal rule (axis=0 is depth)
-    storage = cv * np.trapezoid(dT_dt, depths, axis=0)
+    # Integrate storage term over depth using the trapezoidal rule
+    storage = cv * np.trapz(dT_dt, depths, axis=0)
 
-    return -thermal_conductivity * grad_T_at_z + storage  # type: ignore
+    # Combine terms to get surface heat flux
+    return -thermal_conductivity * grad_T_at_z + storage
 
 
 # ---------------------------------------------------------------------
@@ -129,21 +146,29 @@ def reference_ground_heat_flux(
 
 
 def ground_heat_flux_pr(qs: np.ndarray, p: float) -> np.ndarray:
-    """Ground heat flux using a fixed *p* fraction of net radiation (Eq. 2).
+    """
+    Estimate ground heat flux as a fixed fraction of net radiation
+    (Liebethal & Foken 2006, Eq. 2).
 
-    G₀,PR(t) = ‑p · Q*ₛ(t)
+    This is a simple empirical relationship where the ground heat flux
+    is assumed to be a constant proportion of the net radiation at the
+    surface.
+
+    .. math:: G_{0,PR}(t) = -p \\cdot Q^*_s(t)
 
     Parameters
     ----------
-    qs : ndarray
-        Net radiation time series (W m⁻²). Positive = downward.
+    qs : numpy.ndarray
+        Time series of net radiation (W m⁻²). Positive values are
+        typically downward.
     p : float
-        Fraction of net radiation that becomes ground‑heat flux (0–1).
+        The fraction of net radiation that is partitioned into
+        ground heat flux (dimensionless, typically 0 < p < 1).
 
     Returns
     -------
-    ndarray
-        G₀,PR (W m⁻²).
+    numpy.ndarray
+        Time series of the estimated ground heat flux *G₀,PR* (W m⁻²).
     """
     return -p * np.asarray(qs, dtype=float)
 
@@ -156,26 +181,33 @@ def ground_heat_flux_pr(qs: np.ndarray, p: float) -> np.ndarray:
 def ground_heat_flux_lr(
     qs: np.ndarray, a: float, b: float, lag_steps: int = 0
 ) -> np.ndarray:
-    """Linear net‑radiation parameterisation (Eq. 3).
+    """
+    Estimate ground heat flux using a linear regression against net
+    radiation, with an optional time lag (Liebethal & Foken 2006, Eq. 3).
 
-    G₀,LR(t) = a·Q*ₛ(t+Δt_G) + b
+    .. math:: G_{0,LR}(t) = a \\cdot Q^*_s(t + \\Delta t_G) + b
 
     Parameters
     ----------
-    qs : ndarray
-        Net radiation (W m⁻²).
-    a, b : float
-        Regression coefficients.
-    lag_steps : int, default 0
-        Integer lag (number of samples) by which *qs* is advanced.
+    qs : numpy.ndarray
+        Time series of net radiation (W m⁻²).
+    a : float
+        The slope of the linear regression (dimensionless).
+    b : float
+        The intercept of the linear regression (W m⁻²).
+    lag_steps : int, optional
+        The integer time lag (number of array elements) to apply to the
+        net radiation series. A positive value advances the series
+        (e.g., `qs[t+lag]` is used for `G[t]`), by default 0.
 
     Returns
     -------
-    ndarray
-        G₀,LR (W m⁻²).
+    numpy.ndarray
+        Time series of the estimated ground heat flux *G₀,LR* (W m⁻²).
     """
     qs = np.asarray(qs, dtype=float)
     if lag_steps != 0:
+        # A negative roll shift corresponds to a positive time lag
         qs = np.roll(qs, -lag_steps)
     return a * qs + b
 
@@ -186,17 +218,26 @@ def ground_heat_flux_lr(
 
 
 def ur_coefficients(delta_ts: float | np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Compute universal‑function parameters *A* and *B* (Eq. 5 & 6).
+    """
+    Compute the parameters A and B for the universal net-radiation
+    parameterization, based on the diurnal surface temperature amplitude
+    (Liebethal & Foken 2006, Eq. 5 & 6).
+
+    .. math::
+        A = 0.0074 \\cdot \\Delta T_s + 0.088
+        B = 1729 \\cdot \\Delta T_s + 65013
 
     Parameters
     ----------
-    delta_ts : float or ndarray
-        Diurnal amplitude of *surface* temperature (K).
+    delta_ts : float or numpy.ndarray
+        The diurnal amplitude of the surface temperature (K or °C).
 
     Returns
     -------
-    A : ndarray
-    B : ndarray (seconds)
+    Tuple[numpy.ndarray, numpy.ndarray]
+        A tuple containing the computed parameters (A, B).
+        - A is dimensionless.
+        - B is in seconds.
     """
     delta_ts = np.asarray(delta_ts, dtype=float)
     A = 0.0074 * delta_ts + 0.088
@@ -212,26 +253,32 @@ def ur_coefficients(delta_ts: float | np.ndarray) -> Tuple[np.ndarray, np.ndarra
 def ground_heat_flux_ur(
     qs: np.ndarray, times_sec: np.ndarray, delta_ts: float
 ) -> np.ndarray:
-    """Universal net‑radiation parameterisation (Eq. 4).
+    """
+    Estimate ground heat flux using the universal net-radiation
+    parameterization by Santanello & Friedl (2003), as cited in
+    Liebethal & Foken (2006, Eq. 4).
 
-    Implements Santanello & Friedl (2003):
-        G₀,UR(t) = -A · cos[2π (t + 10800) / B] · Q*ₛ(t)
+    This method modulates the fraction of net radiation partitioned to
+    ground heat flux with a cosine function of the time of day.
 
-    *t* is **seconds since solar noon** (positive in afternoon).
+    .. math::
+        G_{0,UR}(t) = -A \\cdot \\cos\\left(\\frac{2\\pi (t + 10800)}{B}\\right)
+                      \\cdot Q^*_s(t)
 
     Parameters
     ----------
-    qs : ndarray
-        Net radiation (W m⁻²).
-    times_sec : ndarray
-        Seconds relative to solar noon (s).
+    qs : numpy.ndarray
+        Time series of net radiation (W m⁻²).
+    times_sec : numpy.ndarray
+        Time stamps in **seconds relative to solar noon**. Positive values
+        indicate the afternoon.
     delta_ts : float
-        Diurnal surface‑temperature amplitude (K).
+        The diurnal amplitude of the surface temperature (K or °C).
 
     Returns
     -------
-    ndarray
-        G₀,UR (W m⁻²).
+    numpy.ndarray
+        Time series of the estimated ground heat flux *G₀,UR* (W m⁻²).
     """
     A, B = ur_coefficients(delta_ts)
     phase = np.cos(2 * np.pi * (times_sec + 10_800.0) / B)
@@ -246,22 +293,41 @@ def ground_heat_flux_ur(
 def surface_temp_amplitude(
     delta_t1: float, delta_t2: float, z1: float, z2: float
 ) -> float:
-    """Compute diurnal surface‑temperature amplitude ΔT_s (Eq. 8).
+    """
+    Estimate the diurnal surface-temperature amplitude (ΔT_s) from
+    temperature amplitudes measured at two different soil depths
+    (Liebethal & Foken 2006, Eq. 8).
+
+    This method assumes an exponential decay of the temperature wave
+    amplitude with depth.
+
+    .. math::
+        \\Delta T_s = \\Delta T_1 + \\Delta T_2 \\cdot
+                      \\exp\\left(\\frac{z_2}{z_2 - z_1}\\right)
 
     Parameters
     ----------
-    delta_t1, delta_t2 : float
-        Diurnal temperature amplitudes (K) measured at depths *z1* and *z2*.
-    z1, z2 : float
-        Depths in meters (**positive downward**, with z2 > z1 > 0).
+    delta_t1 : float
+        Diurnal temperature amplitude (K or °C) measured at depth `z1`.
+    delta_t2 : float
+        Diurnal temperature amplitude (K or °C) measured at depth `z2`.
+    z1 : float
+        The shallower depth in meters (positive downward).
+    z2 : float
+        The deeper depth in meters (positive downward).
 
     Returns
     -------
     float
-        Estimated ΔT_s (K).
+        The estimated diurnal surface-temperature amplitude ΔT_s (K or °C).
+
+    Raises
+    ------
+    ValueError
+        If `z2` is not greater than `z1`.
     """
     if z2 <= z1:
-        raise ValueError("Require z2 > z1")
+        raise ValueError("Depth z2 must be greater than z1.")
     exponent = z2 / (z2 - z1)
     return delta_t1 + delta_t2 * np.exp(exponent)
 
@@ -274,7 +340,27 @@ def surface_temp_amplitude(
 def phi_from_soil_moisture(
     theta_0_10: float, a_phi: float = 9.62, b_phi: float = 0.402
 ) -> float:
-    """Soil‑moisture dependent φ (Eq. 10)."""
+    """
+    Calculate the empirical parameter φ based on soil moisture content
+    (Liebethal & Foken 2006, Eq. 10).
+
+    .. math:: \\phi = a_\\phi \\cdot \\theta_{0-10} + b_\\phi
+
+    Parameters
+    ----------
+    theta_0_10 : float
+        Average volumetric soil moisture content in the top 10 cm
+        (m³ m⁻³).
+    a_phi : float, optional
+        Empirical coefficient, by default 9.62.
+    b_phi : float, optional
+        Empirical coefficient, by default 0.402.
+
+    Returns
+    -------
+    float
+        The dimensionless parameter φ.
+    """
     return a_phi * theta_0_10 + b_phi
 
 
@@ -286,31 +372,55 @@ def ground_heat_flux_sh(
     phi: float,
     omega: float = 2 * np.pi / 86_400.0,
 ) -> np.ndarray:
-    """Ground‑heat flux from sensible heat flux H (Eq. 9).
+    """
+    Estimate ground heat flux from the sensible heat flux (H)
+    (Liebethal & Foken 2006, Eq. 9).
+
+    This method relates the ground heat flux to the sensible heat flux
+    through a phase-shifted and scaled relationship.
+
+    .. math::
+        G_{0,SH}(t) = -\\frac{\\phi}{\\sqrt{\\bar{u}}}
+                      \\frac{\\cos(\\omega t + \\varphi(G_0))}
+                           {\\cos(\\omega t + \\varphi(H))} H(t)
 
     Parameters
     ----------
-    h : ndarray
-        Sensible heat flux time series (W m⁻²).
-    phase_g0, phase_h : sequence of float
-        Phase lags φ(G₀) and φ(H) in **radians**.
+    h : numpy.ndarray
+        Time series of sensible heat flux (W m⁻²).
+    phase_g0 : Sequence[float]
+        Phase lags of the ground heat flux, φ(G₀), in **radians**. Must
+        have the same length as `h`.
+    phase_h : Sequence[float]
+        Phase lags of the sensible heat flux, φ(H), in **radians**. Must
+        have the same length as `h`.
     u_mean : float
-        Mean horizontal wind speed during daytime (m s⁻¹).
+        Mean horizontal wind speed during the daytime (m s⁻¹).
     phi : float
-        Empirical parameter (dimensionless), see `phi_from_soil_moisture`.
-    omega : float, default 2π/86400
-        Diurnal angular frequency (s⁻¹).
+        An empirical dimensionless parameter, often derived from soil
+        moisture via `phi_from_soil_moisture`.
+    omega : float, optional
+        The diurnal angular frequency (rad s⁻¹), by default `2π/86400`.
 
     Returns
     -------
-    ndarray
-        G₀,SH (W m⁻²).
+    numpy.ndarray
+        Time series of the estimated ground heat flux *G₀,SH* (W m⁻²).
+
+    Raises
+    ------
+    ValueError
+        If the length of phase arrays does not match the length of `h`.
     """
+    h = np.asarray(h, dtype=float)
     if len(phase_g0) != len(h) or len(phase_h) != len(h):
-        raise ValueError("Phase arrays must match length of h")
-    ratio = np.cos(omega * np.arange(len(h)) + phase_g0) / np.cos(
-        omega * np.arange(len(h)) + phase_h
-    )
+        raise ValueError("Phase arrays must match the length of h.")
+
+    t_steps = np.arange(len(h))
+    cos_g0 = np.cos(omega * t_steps + np.asarray(phase_g0))
+    cos_h = np.cos(omega * t_steps + np.asarray(phase_h))
+
+    ratio = cos_g0 / cos_h
     return -(phi / np.sqrt(u_mean)) * ratio * h
 
 
@@ -327,39 +437,47 @@ def ground_heat_flux_sm(
     zp: float,
     dt_seconds: float,
 ) -> np.ndarray:
-    """Simple‑measurement parameterisation (Eq. 11).
+    """
+    Estimate surface ground heat flux using the "simple measurement"
+    parameterization, correcting a heat flux plate measurement with a
+    storage term (Liebethal & Foken 2006, Eq. 11).
+
+    .. math::
+        G_{0,SM}(t) = G_p(t) + c_v z_p \\left( \\frac{dT_1}{dt} +
+                      \\frac{1}{2} \\frac{d(\\Delta T)}{dt} \\right)
 
     Parameters
     ----------
-    gp : ndarray
-        Heat‑flux plate measurement at depth *zp* (W m⁻²).
-    t1 : ndarray
-        Soil temperature at 0.01 m depth (K or °C).
-    delta_t : ndarray
-        Temperature difference T(0.01 m) – T(z_p) (K).
+    gp : numpy.ndarray
+        Heat flux plate measurements at depth `zp` (W m⁻²).
+    t1 : numpy.ndarray
+        Soil temperature at 0.01 m depth (K or °C).
+    delta_t : numpy.ndarray
+        Temperature difference T(0.01 m) - T(zp) (K).
     cv : float
-        Volumetric heat capacity (J m⁻³ K⁻¹).
+        Volumetric heat capacity of the soil (J m⁻³ K⁻¹).
     zp : float
-        Plate depth (m, positive downward).
+        Depth of the heat flux plate (m, positive downward).
     dt_seconds : float
-        Time step between consecutive samples (s).
+        The constant time step between consecutive samples (s).
 
     Returns
     -------
-    ndarray
-        G₀,SM (W m⁻²).
+    numpy.ndarray
+        Time series of the estimated ground heat flux *G₀,SM* (W m⁻²).
+        The first element will be NaN due to the backward difference.
     """
     gp = np.asarray(gp, dtype=float)
     t1 = np.asarray(t1, dtype=float)
     delta_t = np.asarray(delta_t, dtype=float)
 
-    # Finite differences using backward stencil to match t‑Δt in paper.
-    dT1_dt = np.empty_like(t1)
-    dDeltaT_dt = np.empty_like(delta_t)
+    # Use central differences for better accuracy if possible, but paper
+    # implies a time-stepping scheme. Using backward difference for dT/dt.
+    dT1_dt = np.full_like(t1, np.nan)
+    dDeltaT_dt = np.full_like(delta_t, np.nan)
+
     dT1_dt[1:] = (t1[1:] - t1[:-1]) / dt_seconds
-    dT1_dt[0] = np.nan
     dDeltaT_dt[1:] = (delta_t[1:] - delta_t[:-1]) / dt_seconds
-    dDeltaT_dt[0] = np.nan
 
     storage_term = cv * zp * (dT1_dt + 0.5 * dDeltaT_dt)
     return gp + storage_term
@@ -373,7 +491,26 @@ def ground_heat_flux_sm(
 def active_layer_thickness(
     lambda_: float, cv: float, omega: float = 2 * np.pi / 86_400
 ) -> float:
-    """Thickness δz of the active soil layer (Eq. 13)."""
+    """
+    Calculate the thickness of the active soil layer (δz) for the
+    force-restore method (Liebethal & Foken 2006, Eq. 13).
+
+    .. math:: \\delta_z = \\sqrt{\\frac{\\lambda}{2 c_v \\omega}}
+
+    Parameters
+    ----------
+    lambda_ : float
+        Soil thermal conductivity (W m⁻¹ K⁻¹).
+    cv : float
+        Volumetric heat capacity of the soil (J m⁻³ K⁻¹).
+    omega : float, optional
+        The diurnal angular frequency (rad s⁻¹), by default `2π/86400`.
+
+    Returns
+    -------
+    float
+        The thickness of the active soil layer δz (m).
+    """
     return np.sqrt(lambda_ / (2 * cv * omega))
 
 
@@ -385,32 +522,39 @@ def ground_heat_flux_fr(
     delta_z: float | None = None,
     times: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Force‑restore ground‑heat flux (Eq. 12).
+    """
+    Estimate ground heat flux using the two-layer force-restore method
+    (Liebethal & Foken 2006, Eq. 12).
 
-    Implements the two‑layer force‑restore formulation with an optional
-    diagnostic *δz* computed via Eq. 13 if not supplied.
+    .. math::
+        G_{0,FR}(t) = -\\delta_z c_v \\frac{dT_g}{dt} +
+                      \\sqrt{\\lambda \\omega c_v} \\left(
+                      \\frac{1}{\\omega}\\frac{dT_g}{dt} + (T_g - \\bar{T_g})
+                      \\right)
 
     Parameters
     ----------
-    tg : ndarray
-        Temperature of the upper (surface) layer Tg(t).
+    tg : numpy.ndarray
+        Time series of the upper (surface) layer temperature, Tg(t) (K).
     tg_avg : float
-        Long‑term average or restoring temperature Tḡ (K).
+        The long-term average or "restoring" temperature, T̄g (K).
     cv : float
-        Volumetric heat capacity (J m⁻³ K⁻¹).
+        Volumetric heat capacity of the soil (J m⁻³ K⁻¹).
     lambda_ : float
-        Soil thermal conductivity λ (W m⁻¹ K⁻¹).
+        Soil thermal conductivity λ (W m⁻¹ K⁻¹).
     delta_z : float, optional
-        Thickness of the active soil layer δz (m).  If *None*, computed
-        from ``active_layer_thickness``.
-    times : ndarray, optional
-        Time stamps in seconds.  Required when *delta_z* is None or when
-        irregular sampling; defaults to `np.arange(len(tg))` seconds.
+        Thickness of the active soil layer δz (m). If `None`, it is
+        calculated internally using `active_layer_thickness`,
+        by default None.
+    times : numpy.ndarray, optional
+        Time stamps in seconds corresponding to `tg`. Required for
+        calculating the time derivative. If `None`, assumes a uniform
+        time step of 1 second, by default None.
 
     Returns
     -------
-    ndarray
-        G₀,FR (W m⁻²).
+    numpy.ndarray
+        Time series of the estimated ground heat flux *G₀,FR* (W m⁻²).
     """
     tg = np.asarray(tg, dtype=float)
     if times is None:
