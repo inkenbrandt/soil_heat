@@ -1491,3 +1491,98 @@ if __name__ == "__main__":
     # Calculate thermal properties
     results_df = calculate_thermal_properties_for_all_pairs(df, depth_mapping)
     print(results_df)
+
+
+def calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3):
+    """
+    Calculate soil heat storage and heat flux.
+
+    Parameters:
+    -----------
+    df : DataFrame
+        Must contain columns: 'T_5cm', 'T_10cm', etc. and 'SM_5cm', 'SM_10cm', etc.
+        where SM is volumetric soil moisture (0-1 or 0-100%)
+    depths : list
+        Measurement depths in cm, e.g., [5, 10, 20, 30, 40, 50]
+    porosity : float
+        Soil porosity (0-1), default 0.45
+    bulk_density : float
+        Dry soil bulk density (g/cm³), default 1.3
+
+    Returns:
+    --------
+    DataFrame with heat storage and flux values
+    """
+
+    # Constants
+    Cw = 4.18e6  # J m-3 K-1, volumetric heat capacity of water
+    Cs = 2.0e6  # J m-3 K-1, volumetric heat capacity of soil minerals
+    Ca = 1.2e3  # J m-3 K-1, volumetric heat capacity of air (often negligible)
+
+    # Define layer boundaries (midpoints between sensors)
+    # First layer: 0 to midpoint between surface and first sensor
+    # Last layer: from midpoint to some assumed bottom depth
+
+    layer_boundaries = [0]  # Start at surface
+    for i in range(len(depths) - 1):
+        midpoint = (depths[i] + depths[i + 1]) / 2
+        layer_boundaries.append(midpoint)
+    # Assume bottom boundary extends another half-interval
+    last_interval = depths[-1] - depths[-2]
+    layer_boundaries.append(depths[-1] + last_interval / 2)
+
+    # Convert to meters
+    layer_boundaries = np.array(layer_boundaries) / 100
+    depths_m = np.array(depths) / 100
+
+    # Calculate layer thicknesses
+    layer_thicknesses = np.diff(layer_boundaries)
+
+    print(f"Layer boundaries (m): {layer_boundaries}")
+    print(f"Layer thicknesses (m): {layer_thicknesses}")
+    print(f"Total depth (m): {layer_boundaries[-1]}")
+
+    # Initialize result dataframe
+    result = pd.DataFrame(index=df.index)
+
+    # Calculate volumetric heat capacity for each layer
+    for i, depth in enumerate(depths):
+        # Get temperature and soil moisture
+        T_col = f"T_{depth}cm"
+        SM_col = f"SM_{depth}cm"
+
+        # Soil moisture (convert to 0-1 if given as percentage)
+        theta_w = df[SM_col].copy()
+        if theta_w.max() > 1:
+            theta_w = theta_w / 100
+
+        # Volume fractions
+        theta_s = bulk_density / 2.65  # Assuming particle density of 2.65 g/cm³
+        theta_a = porosity - theta_w
+        theta_a = theta_a.clip(lower=0)  # Can't be negative
+
+        # Volumetric heat capacity (J m-3 K-1)
+        Cv = theta_w * Cw + theta_s * Cs + theta_a * Ca
+
+        # Heat content for this layer (J m-2)
+        dz = layer_thicknesses[i]
+        heat_content = Cv * dz * df[T_col]
+
+        result[f"Cv_{depth}cm"] = Cv
+        result[f"heat_content_{depth}cm"] = heat_content
+
+    # Total heat storage (sum across all layers)
+    heat_cols = [c for c in result.columns if c.startswith("heat_content_")]
+    result["total_heat_storage"] = result[heat_cols].sum(axis=1)
+
+    # Calculate heat storage change (soil heat flux, G)
+    # This is dS/dt - typically calculated as change from some reference time
+    result["heat_storage_change"] = result[
+        "total_heat_storage"
+    ].diff()  # J m-2 per timestep
+
+    # Convert to W m-2 (assuming hourly data)
+    dt_seconds = (df.index[1] - df.index[0]).total_seconds()
+    result["G"] = result["heat_storage_change"] / dt_seconds  # W m-2
+
+    return result
