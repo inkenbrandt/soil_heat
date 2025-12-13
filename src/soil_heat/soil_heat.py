@@ -1518,7 +1518,7 @@ def calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3):
     Cw = 4.18e6  # J m-3 K-1, volumetric heat capacity of water
     Cs = 2.0e6  # J m-3 K-1, volumetric heat capacity of soil minerals
     Ca = 1.2e3  # J m-3 K-1, volumetric heat capacity of air (often negligible)
-
+    particle_density = 2.65  # g/cm³, typical mineral soil particle density
     # Define layer boundaries (midpoints between sensors)
     # First layer: 0 to midpoint between surface and first sensor
     # Last layer: from midpoint to some assumed bottom depth
@@ -1557,7 +1557,7 @@ def calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3):
             theta_w = theta_w / 100
 
         # Volume fractions
-        theta_s = bulk_density / 2.65  # Assuming particle density of 2.65 g/cm³
+        theta_s = bulk_density / particle_density
         theta_a = porosity - theta_w
         theta_a = theta_a.clip(lower=0)  # Can't be negative
 
@@ -1579,10 +1579,10 @@ def calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3):
     # This is dS/dt - typically calculated as change from some reference time
     result["heat_storage_change"] = result[
         "total_heat_storage"
-    ].diff()  # J m-2 per timestep
+    ].diff()  # J m-2 per timestep; positive means increasing storage (heat entering soil, downward flux)
 
-    # Convert to W m-2 (assuming hourly data)
-    dt_seconds = (df.index[1] - df.index[0]).total_seconds()
+    # Convert to W m-2 using median timestep
+    dt_seconds = pd.Series(df.index).diff().dt.total_seconds().median()
     result["G"] = result["heat_storage_change"] / dt_seconds  # W m-2
 
     return result
