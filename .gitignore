@@ -113,3 +113,4 @@ ENV/
 /.editorconfig
 /.gitignore
 /src/soil_heat/__pycache__
+/src/soil_heat.egg-info
