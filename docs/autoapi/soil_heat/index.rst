@@ -165,7 +165,7 @@ Package Contents
 
 
 .. py:data:: __version__
-   :value: '0.1.1'
+   :value: '0.1.2'
 
 
 .. py:data:: WATER_HEAT_CAPACITY

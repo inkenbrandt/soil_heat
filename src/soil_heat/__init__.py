@@ -27,7 +27,7 @@ vectorized computations.
 
 __author__ = """Paul Inkenbrandt"""
 __email__ = "paulinkenbrandt@utah.gov"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 from .soil_heat import *
 from .gao_et_al import *
