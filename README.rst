@@ -60,16 +60,36 @@ Here is a basic example of how to use one of the functions from the library. Thi
     print("Calculated heat flux at the first 5 time steps:")
     print(Gz[:5])
 
+Another example using the FAO-56 monthly method:
+
+.. code-block:: python
+
+    from soil_heat import soil_heat_flux_monthly
+
+    # Monthly mean temperatures for March and May (°C)
+    t_mar = 14.1
+    t_may = 18.8
+
+    # Calculate April soil heat flux
+    g_apr = soil_heat_flux_monthly(t_mar, t_may)
+    print(f"April soil heat flux: {g_apr:.3f} MJ m-2 day-1")
+
 
 Implemented Models
 ------------------
 
-The library includes implementations from the following key publications:
+The library includes implementations from the following key publications and standards:
 
+*   **Allen, R.G., et al. (1998)**: FAO-56 Crop Evapotranspiration - Guidelines for computing crop water requirements.
+*   **ASCE-EWRI (2005)**: The ASCE Standardized Reference Evapotranspiration Equation.
 *   **Gao, Z., et al. (2017)**: Soil thermal conductivity parameterization.
 *   **Liebethal, C., & Foken, T. (2006)**: Evaluation of six parameterization approaches for the ground heat flux.
 *   **Wang, Z.-H., & Bou-Zeid, E. (2012)**: A novel approach for the estimation of soil ground heat flux.
 *   **Yang, K., & Wang, J. (2008)**: A temperature prediction-correction method for estimating surface soil heat flux.
+
+The library also includes modules for:
+
+*   **Soil and Canopy Heat Storage**: Methods to calculate energy storage in the soil and plant canopy.
 
 Please refer to the documentation for each module for a detailed list of the implemented equations.
 

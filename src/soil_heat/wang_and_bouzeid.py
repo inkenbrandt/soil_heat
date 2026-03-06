@@ -281,7 +281,7 @@ def green_function_temperature(
       returns 0.0.
     * **Vectorisation** – For vector or array input use
       :func:`numpy.vectorize` or wrap the function in
-      :pyfunc:`numpy.frompyfunc`; the core implementation is scalar for
+      :func:`numpy.frompyfunc`; the core implementation is scalar for
       numerical clarity.
     * **Usage** – ``g_z(t)`` can be convolved with an arbitrary surface
       heat-flux time series ``q₀(t)`` to obtain temperature at depth
@@ -529,7 +529,7 @@ def soil_temperature_sinusoidal(
     A : float
         Amplitude of the sinusoidal **surface heat flux** (W m⁻², positive
         downward).  Consistent with
-        :pyfunc:`sinusoidal_boundary_flux`.
+        :func:`sinusoidal_boundary_flux`.
     omega : float
         Angular frequency of the forcing (rad s⁻¹).
         For a diurnal wave ``omega = 2 * π / 86_400``.
@@ -699,7 +699,7 @@ def soil_heat_flux_sinusoidal(
       ``len(t) × 2000``.
     * **Coupling with temperature** –
       The companion function
-      :pyfunc:`soil_temperature_sinusoidal` gives *T(z,t)* under the
+      :func:`soil_temperature_sinusoidal` gives *T(z,t)* under the
       same boundary forcing; *G* and *T* satisfy Fourier’s law
       ``G = -k ∂T/∂z`` once thermal conductivity *k* is specified.
 

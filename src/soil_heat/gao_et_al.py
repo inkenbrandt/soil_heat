@@ -601,7 +601,7 @@ def force_restore_gz(
     * :math:`\\partial T_g / \\partial t` … ground-temperature tendency
       (K s⁻¹)
     * :math:`\\lambda_s(C_v)` … soil thermal conductivity derived from
-      *C_v* via :pyfunc:`lambda_s_from_cv` (W m⁻¹ K⁻¹)
+      *C_v* via :func:`lambda_s_from_cv` (W m⁻¹ K⁻¹)
     * :math:`\\omega` … angular frequency of the diurnal cycle
       (rad s⁻¹)
     * :math:`T_g` / :math:`\\bar{T}_g` … instantaneous and running-mean
@@ -643,7 +643,7 @@ def force_restore_gz(
     Notes
     -----
     * **λ_s(C_v) mapping** – The function relies on a helper
-      :pyfunc:`lambda_s_from_cv` that converts volumetric heat capacity
+      :func:`lambda_s_from_cv` that converts volumetric heat capacity
       to thermal conductivity.  Ensure that this helper is present in
       the import path.
     * **Units** – Keep units internally consistent (SI).
@@ -1595,7 +1595,7 @@ def wbz12_g_gz(
     * A very small term ``+ 1e-12`` is added under the square root to
       avoid division by zero at *t = t₀*.
     * The complementary error function is evaluated with
-      :pyfunc:`numpy.erfc`, which is vectorized and avoids the SciPy
+      :func:`numpy.erfc`, which is vectorized and avoids the SciPy
       dependency.
 
     References
