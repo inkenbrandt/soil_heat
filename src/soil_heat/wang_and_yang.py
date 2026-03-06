@@ -87,8 +87,12 @@ def soil_heat_flux(
 
     # Extrapolate surface & bottom fluxes assuming the same gradient as the
     # nearest two layers (Neumann boundary condition approximation).
-    G_surface = -lam[0] * (Tz[0] - Tz[1]) / (dz[0]/2 + dz[1]/2)
-    G_bottom = -lam[-1] * (Tz[-2] - Tz[-1]) / (dz[-2]/2 + dz[-1]/2)
+    if np.ndim(lam):
+        G_surface = -lam[0] * (Tz[0] - Tz[1]) / (dz[0]/2 + dz[1]/2)
+        G_bottom = -lam[-1] * (Tz[-2] - Tz[-1]) / (dz[-2]/2 + dz[-1]/2)
+    else:
+        G_surface = -lam * (Tz[0] - Tz[1]) / (dz[0]/2 + dz[1]/2)
+        G_bottom = -lam * (Tz[-2] - Tz[-1]) / (dz[-2]/2 + dz[-1]/2)
 
     return np.concatenate(([G_surface], G_int, [G_bottom]))
 
@@ -276,13 +280,14 @@ def tridiagonal_coeffs(
 
     A = -alpha / dz[:-1]
     C = -beta / dz[1:]
-    B = rho_c[1:-1]/dt - A - C
 
     # Adjust for boundary conditions
     B_full = np.zeros(n)
     B_full[0] = rho_c[0]/dt + alpha[0]
     B_full[-1] = rho_c[-1]/dt + beta[-1]
-    B_full[1:-1] = B
+    if n > 2:
+        B = rho_c[1:-1]/dt - A[1:] - C[:-1]
+        B_full[1:-1] = B
 
     return A, B_full, C
 

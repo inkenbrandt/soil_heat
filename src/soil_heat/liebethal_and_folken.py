@@ -124,17 +124,17 @@ def reference_ground_heat_flux(
 
     # ------------ gradient term
     # Calculate spatial gradient (∂T/∂z) for each time step
-    dT_dz = _central_gradient(T, depths[:, None])  # shape (n_z, n_t)
+    dT_dz = np.array([_central_gradient(T[:, i], depths) for i in range(T.shape[1])]).T
 
     # Interpolate ∂T/∂z to the specified gradient_depth for each time step
     grad_T_at_z = np.array([np.interp(gradient_depth, depths, dT_dz[:, i]) for i in range(T.shape[1])])
 
     # ------------ storage (calorimetry) term
     # Calculate temporal gradient (∂T/∂t) for each depth
-    dT_dt = _central_gradient(T, times[None, :])  # shape (n_z, n_t)
+    dT_dt = np.array([_central_gradient(T[i, :], times) for i in range(T.shape[0])])
 
     # Integrate storage term over depth using the trapezoidal rule
-    storage = cv * np.trapz(dT_dt, depths, axis=0)
+    storage = cv * getattr(np, "trapezoid", getattr(np, "trapz"))(dT_dt, depths, axis=0)
 
     # Combine terms to get surface heat flux
     return -thermal_conductivity * grad_T_at_z + storage

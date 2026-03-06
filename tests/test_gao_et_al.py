@@ -123,3 +123,80 @@ def test_calorimetric_gz():
     # Test with incompatible shapes by making dz have a different number of layers
     with pytest.raises(ValueError):
         gao_et_al.calorimetric_gz(g_plate, Cv, dTdt, np.array([0.1, 0.2, 0.3]))
+
+
+def test_force_restore_gz():
+    cv = 2e6
+    dTg_dt = 1e-4
+    Tg = 300
+    Tg_bar = 295
+    g = gao_et_al.force_restore_gz(cv, dTg_dt, Tg, Tg_bar)
+    assert np.isclose(g, 83.305, atol=1e-3)
+
+
+def test_lambda_s_from_cv():
+    assert gao_et_al.lambda_s_from_cv(2.2e6) == 1.0
+    with pytest.raises(ValueError):
+        gao_et_al.lambda_s_from_cv(0)
+
+
+def test_gao2010_gz():
+    g = gao_et_al.gao2010_gz(8.0, 1.0, 1e-6, 3600)
+    assert np.isclose(g, 59.081, atol=1e-3)
+
+
+def test_heusinkveld_gz():
+    g = gao_et_al.heusinkveld_gz([10], [0], 1, 1e-6, 1.0, 2 * np.pi / 86400)
+    assert np.isclose(g[0], 26395728.157, atol=1e-3)
+
+
+def test_hsieh2009_gz():
+    t = [0, 3600]
+    T = [290, 291]
+    cv = [2e6, 2e6]
+    ks = [1e-6, 1e-6]
+    g = gao_et_al.hsieh2009_gz(T, t, cv, ks)
+    assert np.isclose(g, 0.0265, atol=1e-3)
+
+
+def test_leuning_damping_depth():
+    d = gao_et_al.leuning_damping_depth(0.1, 0.05, 4, 8)
+    assert np.isclose(d, 0.07213, atol=1e-5)
+
+
+def test_leuning_gz():
+    g = gao_et_al.leuning_gz(10, 0.05, 0.1, 0.1)
+    assert np.isclose(g, 16.487, atol=1e-3)
+
+
+def test_simple_measurement_gz():
+    g_zr = [10, 12, 11]
+    T = [[15, 16, 15.5], [14, 14.2, 14.1]]
+    cv = [2e6, 2e6]
+    dz = [0.03, 0.02]
+    g = gao_et_al.simple_measurement_gz(g_zr, cv, T, 3600, dz)
+    assert len(g) == 1
+    assert np.isclose(g[0], 7.277, atol=1e-3)
+
+
+def test_wbz12_g_gz():
+    g_zr = [10, 11, 12]
+    t = [0, 600, 1200]
+    g = gao_et_al.wbz12_g_gz(g_zr, t, 0.05, 0.08, 1e-6)
+    assert len(g) == 3
+    assert np.isclose(g[2], -5.357, atol=1e-3)
+
+
+def test_wbz12_s_gz():
+    g = gao_et_al.wbz12_s_gz(8.0, 1e-6, 0.08, 0.05, 3600, 0.1)
+    assert np.isclose(g, 1.193, atol=1e-3)
+
+
+def test_exact_temperature_gz():
+    T = gao_et_al.exact_temperature_gz(0.05, 8, 3600, 0.1)
+    assert np.isclose(T, 297.005, atol=1e-3)
+
+
+def test_exact_gz():
+    g = gao_et_al.exact_gz(0.05, 8, 1.0, 0.1, 3600)
+    assert np.isclose(g, 35.703, atol=1e-3)
