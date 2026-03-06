@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 from typing import Sequence, Tuple
 
+_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")
+
 # ---------------------------------------------------------------------
 #  Utility finite‑difference helpers
 # ---------------------------------------------------------------------
@@ -134,7 +136,7 @@ def reference_ground_heat_flux(
     dT_dt = np.array([_central_gradient(T[i, :], times) for i in range(T.shape[0])])
 
     # Integrate storage term over depth using the trapezoidal rule
-    storage = cv * getattr(np, "trapezoid", getattr(np, "trapz"))(dT_dt, depths, axis=0)
+    storage = cv * _trapz(dT_dt, depths, axis=0)
 
     # Combine terms to get surface heat flux
     return -thermal_conductivity * grad_T_at_z + storage

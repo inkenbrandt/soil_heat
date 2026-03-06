@@ -46,6 +46,8 @@ from typing import Callable, Sequence
 import numpy as np
 from scipy.special import erfc, gammaincc
 
+_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")
+
 __all__ = [
     # Energy balance & residuals
     "energy_balance_residual",
@@ -207,7 +209,7 @@ def ground_heat_flux_conventional(
     # Integration bounds: surface (0) to z_r (last node) – prepend surface
     z_nodes = np.concatenate(([0.0], z))
     dT_dt_nodes = np.concatenate(([dT_dt[0]], dT_dt))
-    storage = getattr(np, "trapezoid", getattr(np, "trapz"))(dT_dt_nodes, x=z_nodes)
+    storage = _trapz(dT_dt_nodes, x=z_nodes)
     G_storage = rho_c * storage
 
     return G_conduction + G_storage  # type: ignore
@@ -603,13 +605,13 @@ def soil_temperature_sinusoidal(
             * A
             * kappa
             / math.pi
-            * getattr(np, "trapezoid", getattr(np, "trapz"))(_integrand(xi) * np.exp(-kappa * xi**2 * t), xi)  # type: ignore
+            * _trapz(_integrand(xi) * np.exp(-kappa * xi**2 * t), xi)
         )
     else:
         transient = np.zeros_like(t, dtype=float)
         xi = np.linspace(0.0, 50.0 / z if z else 50.0, 2000)
         integ = _integrand(xi)[:, None] * np.exp(-kappa * xi[:, None] ** 2 * t[None, :])
-        transient = -2 * A * kappa / math.pi * getattr(np, "trapezoid", getattr(np, "trapz"))(integ, xi, axis=0)
+        transient = -2 * A * kappa / math.pi * _trapz(integ, xi, axis=0)
 
     return Ti + steady + transient
 
@@ -747,12 +749,12 @@ def soil_heat_flux_sinusoidal(
             * A
             * kappa
             / math.pi
-            * getattr(np, "trapezoid", getattr(np, "trapz"))(_integrand(xi) * np.exp(-kappa * xi**2 * t), xi)  # type: ignore
+            * _trapz(_integrand(xi) * np.exp(-kappa * xi**2 * t), xi)
         )
     else:
         xi = np.linspace(0.0, 50.0 / z if z else 50.0, 2000)
         integ = _integrand(xi)[:, None] * np.exp(-kappa * xi[:, None] ** 2 * t[None, :])
-        transient = -2 * A * kappa / math.pi * getattr(np, "trapezoid", getattr(np, "trapz"))(integ, xi, axis=0)
+        transient = -2 * A * kappa / math.pi * _trapz(integ, xi, axis=0)
 
     return steady + transient
 
