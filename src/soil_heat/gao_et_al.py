@@ -1499,8 +1499,10 @@ def simple_measurement_gz(
         )
 
     # Broadcast cv and dz to (N, 1)
-    cv_layers = np.broadcast_to(cv_layers, (n_layers, 1))
-    dz_layers = np.broadcast_to(dz_layers, (n_layers, 1))
+    if cv_layers.ndim == 1:
+        cv_layers = cv_layers[:, np.newaxis]
+    if dz_layers.ndim == 1:
+        dz_layers = dz_layers[:, np.newaxis]
 
     # --- Storage term -----------------------------------------------------
     delta_tz = tz_layers[:, 1:] - tz_layers[:, :-1]  # shape (N, M-1)
@@ -1632,7 +1634,7 @@ def wbz12_g_gz(
     tau = time_series - t0  # elapsed time (s)
 
     # Transfer function F_z(τ)
-    Fz = np.erfc((zr - z) / (2.0 * np.sqrt(k_s_val * tau + 1e-12)))
+    Fz = erfc((zr - z) / (2.0 * np.sqrt(k_s_val * tau + 1e-12)))
     delta_Fz = np.diff(Fz, prepend=0.0)  # ΔF_z
 
     # Discrete convolution integral J(t_n)

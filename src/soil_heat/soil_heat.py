@@ -1553,7 +1553,10 @@ def calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3):
 
         # Soil moisture (convert to 0-1 if given as percentage)
         theta_w = df[SM_col].copy()
-        if theta_w.max() > 1:
+        if isinstance(theta_w, pd.DataFrame):
+            # If multiple columns match, take the first one or handle error
+            theta_w = theta_w.iloc[:, 0]
+        if (theta_w.values > 1).any():
             theta_w = theta_w / 100
 
         # Volume fractions
@@ -1566,7 +1569,10 @@ def calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3):
 
         # Heat content for this layer (J m-2)
         dz = layer_thicknesses[i]
-        heat_content = Cv * dz * df[T_col]
+        T_vals = df[T_col]
+        if isinstance(T_vals, pd.DataFrame):
+            T_vals = T_vals.iloc[:, 0]
+        heat_content = Cv * dz * T_vals
 
         result[f"Cv_{depth}cm"] = Cv
         result[f"heat_content_{depth}cm"] = heat_content
