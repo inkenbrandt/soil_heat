@@ -410,7 +410,7 @@ def thermal_conductivity(
     * *α* – thermal diffusivity (m² s⁻¹),
     * *C_v(θ_v)* – volumetric heat capacity (J m⁻³ K⁻¹) as a function of
       volumetric water content *θ_v* (m³ m⁻³).
-      It is obtained from :pyfunc:`volumetric_heat_capacity`.
+      It is obtained from :func:`volumetric_heat_capacity`.
 
     Parameters
     ----------
@@ -431,7 +431,7 @@ def thermal_conductivity(
     Notes
     -----
     * **Volumetric heat capacity model** –
-      :pyfunc:`volumetric_heat_capacity` typically assumes a two‐phase
+      :func:`volumetric_heat_capacity` typically assumes a two‐phase
       mixture of mineral soil and water:
 
       .. math::
@@ -1009,7 +1009,7 @@ def calc_thermal_diffusivity_log_pair(df, depth1_col, depth2_col, z1, z2, period
     The function extracts the **first four consecutive samples** from two
     temperature records—one at the shallow depth ``z1`` and one at the deeper
     depth ``z2``—and passes them to
-    :pyfunc:`thermal_diffusivity_logrithmic`.  That helper implements the
+    :func:`thermal_diffusivity_logrithmic`.  That helper implements the
     log–ratio solution of the 1-D heat‐conduction equation for a sinusoidal
     boundary condition (Horton et al., 1934; de Vries, 1963):
 
@@ -1251,12 +1251,12 @@ def calculate_thermal_properties_for_all_pairs(
     *(z₁, z₂)* it
 
     1. Derives thermal diffusivity ``α`` with
-       :pyfunc:`calculate_thermal_diffusivity_for_pair`.
+       :func:`calculate_thermal_diffusivity_for_pair`.
     2. Converts ``α`` to thermal conductivity ``k`` via
-       :pyfunc:`thermal_conductivity`, using the mean volumetric water-
+       :func:`thermal_conductivity`, using the mean volumetric water-
        content of the two layers.
     3. Estimates instantaneous soil heat flux ``G`` by calling
-       :pyfunc:`soil_heat_flux`.
+       :func:`soil_heat_flux`.
 
     Results are returned in a *tidy*, hierarchical ``DataFrame`` whose
     outermost index encodes the depth pair (e.g. ``'0.05-0.10'``).
@@ -1289,7 +1289,7 @@ def calculate_thermal_properties_for_all_pairs(
         inner index matches the *datetime* index of ``df`` (after
         dropping rows with *any* missing data).  For each analysis
         “method” returned by
-        :pyfunc:`calculate_thermal_diffusivity_for_pair` (keys of its
+        :func:`calculate_thermal_diffusivity_for_pair` (keys of its
         result dict) the following columns are present:
 
         ========  ==============================================================
@@ -1306,7 +1306,7 @@ def calculate_thermal_properties_for_all_pairs(
       consistent sample support for derived quantities.
     * **Extensibility** – Additional diffusivity algorithms can be
       integrated by returning extra key–value pairs from
-      :pyfunc:`calculate_thermal_diffusivity_for_pair`; they will be
+      :func:`calculate_thermal_diffusivity_for_pair`; they will be
       propagated automatically.
     * **Performance** – The loop scales *O(n²)* with the number of
       depths.  For large sensor arrays, filter the pairs of interest

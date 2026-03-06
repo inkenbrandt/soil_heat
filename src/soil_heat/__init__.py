@@ -17,6 +17,8 @@ Available submodules:
 - `liebethal_and_folken`: Functions from Liebethal & Foken (2006).
 - `wang_and_bouzeid`: Functions from Wang & Bou-Zeid (2012).
 - `wang_and_yang`: Functions from Yang & Wang (2008).
+- `fao56_soil_heat_flux`: FAO-56 and ASCE soil heat flux methods.
+- `storage_calculations`: Soil and canopy heat storage calculations.
 
 All functions are designed to work with NumPy arrays for efficient,
 vectorized computations.
@@ -32,3 +34,5 @@ from .gao_et_al import *
 from .liebethal_and_folken import *
 from .wang_and_bouzeid import *
 from .wang_and_yang import *
+from .fao56_soil_heat_flux import *
+from .storage_calculations import *

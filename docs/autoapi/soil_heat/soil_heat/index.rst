@@ -35,6 +35,7 @@ Functions
    soil_heat.soil_heat.calculate_thermal_diffusivity_for_pair
    soil_heat.soil_heat.calculate_thermal_properties_for_all_pairs
    soil_heat.soil_heat.estimate_rhoc_dry
+   soil_heat.soil_heat.calculate_soil_heat_storage
 
 
 Module Contents
@@ -268,28 +269,58 @@ Module Contents
 
 .. py:function:: soil_heat_flux(T_upper, T_lower, depth_upper, depth_lower, k)
 
-   Calculate soil heat flux (G) using temperature gradient and thermal conductivity.
+   Calculate soil heat flux (G) using Fourier's law of heat conduction.
 
-   Parameters:
-   - T_upper: Temperature at upper depth (°C)
-   - T_lower: Temperature at lower depth (°C)
-   - depth_upper: Upper sensor depth (m)
-   - depth_lower: Lower sensor depth (m)
-   - k: Thermal conductivity (W/(m·°C))
+   This function computes the one-dimensional heat flux in the soil based on
+   the temperature gradient between two depths and the soil's thermal
+   conductivity. The formula used is:
 
-   Returns:
-   - Soil heat flux (W/m^2)
+   .. math::
+
+       G = -k \frac{\Delta T}{\Delta z}
+
+   where :math:`G` is the soil heat flux, :math:`k` is the thermal
+   conductivity, :math:`\Delta T` is the temperature difference, and
+   :math:`\Delta z` is the distance between the two measurement depths.
+
+   :param T_upper: Temperature at the upper depth (°C or K).
+   :type T_upper: float or array_like
+   :param T_lower: Temperature at the lower depth (°C or K).
+   :type T_lower: float or array_like
+   :param depth_upper: Depth of the upper sensor (m, positive downward).
+   :type depth_upper: float
+   :param depth_lower: Depth of the lower sensor (m, positive downward).
+   :type depth_lower: float
+   :param k: Thermal conductivity of the soil layer between the sensors (W m⁻¹ K⁻¹).
+   :type k: float or array_like
+
+   :returns: The calculated soil heat flux (W m⁻²). A positive value indicates
+             a downward flux (from the surface into the soil).
+   :rtype: float or array_like
 
 
 .. py:function:: volumetric_heat_capacity(theta_v)
 
-   Estimate volumetric heat capacity Cv (J/(m³·°C)) from soil moisture.
+   Estimate volumetric heat capacity (Cv) from soil moisture content.
 
-   Parameters:
-   - theta_v: Volumetric water content (decimal fraction, e.g., 0.20 for 20%)
+   This function uses a simple mixing model to estimate the volumetric heat
+   capacity of moist soil. It assumes the soil is a two-component mixture
+   of dry soil and water. The formula is:
 
-   Returns:
-   - Volumetric heat capacity (kJ/(m³·°C))
+   .. math::
+
+       C_v = (1 - \theta_v) C_{soil} + \theta_v C_{water}
+
+   where :math:`\theta_v` is the volumetric water content, and
+   :math:`C_{soil}` and :math:`C_{water}` are the volumetric heat
+   capacities of dry soil and water, respectively.
+
+   :param theta_v: Volumetric water content (m³ m⁻³). This is a decimal fraction,
+                   e.g., 0.20 for 20% water content.
+   :type theta_v: float or array_like
+
+   :returns: The estimated volumetric heat capacity (kJ m⁻³ K⁻¹).
+   :rtype: float or array_like
 
 
 .. py:function:: thermal_conductivity(alpha: numpy.ndarray | float, theta_v: numpy.ndarray | float) -> numpy.ndarray | float
@@ -308,7 +339,7 @@ Module Contents
    * *α* – thermal diffusivity (m² s⁻¹),
    * *C_v(θ_v)* – volumetric heat capacity (J m⁻³ K⁻¹) as a function of
      volumetric water content *θ_v* (m³ m⁻³).
-     It is obtained from :pyfunc:`volumetric_heat_capacity`.
+     It is obtained from :func:`volumetric_heat_capacity`.
 
    :param alpha: Thermal diffusivity **α** (m² s⁻¹).  May be scalar or any
                  NumPy‐broadcastable shape.
@@ -325,7 +356,7 @@ Module Contents
    .. rubric:: Notes
 
    * **Volumetric heat capacity model** –
-     :pyfunc:`volumetric_heat_capacity` typically assumes a two‐phase
+     :func:`volumetric_heat_capacity` typically assumes a two‐phase
      mixture of mineral soil and water:
 
      .. math::
@@ -686,18 +717,38 @@ Module Contents
 
 .. py:function:: thermal_diffusivity_lag(delta_t, z1, z2, period=86400)
 
-   Estimate thermal diffusivity from phase lag.
+   Estimate soil thermal diffusivity (α) from the phase lag of a temperature wave.
 
-   Parameters:
-   - delta_t: Time lag between peaks at two depths (seconds)
-   - z1, z2: Depths (m)
-   - period: Time period of wave (default = 86400 s for daily cycle)
+   This method calculates thermal diffusivity based on the time it takes for a
+   temperature wave (e.g., the diurnal cycle) to travel between two depths in
+   the soil. The formula is derived from the analytical solution to the
+   one-dimensional heat conduction equation for a periodic boundary condition:
 
-   Returns:
-   - Thermal diffusivity α (m²/s)
+   .. math::
 
-   Citation:
-   S.V. Nerpin, and A.F. Chudnovskii, Soil physics, (Moscow: Nauka) p 584, 1967 (in Russian)
+       \alpha = \frac{P (z_2 - z_1)^2}{4 \pi (\Delta t)^2}
+
+   where :math:`P` is the period of the wave, :math:`(z_2 - z_1)` is the
+   distance between the sensors, and :math:`\Delta t` is the time lag of
+   the temperature peak between the two depths.
+
+   :param delta_t: Time lag between the temperature peaks at two depths (seconds).
+   :type delta_t: float or array_like
+   :param z1: Depth of the upper sensor (m, positive downward).
+   :type z1: float
+   :param z2: Depth of the lower sensor (m, positive downward).
+   :type z2: float
+   :param period: The period of the temperature wave (seconds). The default is 86400,
+                  which corresponds to the daily (diurnal) cycle.
+   :type period: int, optional
+
+   :returns: The calculated thermal diffusivity (α) in m² s⁻¹.
+   :rtype: float or array_like
+
+   .. rubric:: References
+
+   Nerpin, S.V., and Chudnovskii, A.F. (1967). *Soil physics*.
+   (Moscow: Nauka) p 584. (In Russian)
 
 
 .. py:function:: thermal_diffusivity_logrithmic(t1z1: float, t2z1: float, t3z1: float, t4z1: float, t1z2: float, t2z2: float, t3z2: float, t4z2: float, z1: float, z2: float, period: int = 86400) -> float
@@ -807,7 +858,7 @@ Module Contents
    The function extracts the **first four consecutive samples** from two
    temperature records—one at the shallow depth ``z1`` and one at the deeper
    depth ``z2``—and passes them to
-   :pyfunc:`thermal_diffusivity_logrithmic`.  That helper implements the
+   :func:`thermal_diffusivity_logrithmic`.  That helper implements the
    log–ratio solution of the 1-D heat‐conduction equation for a sinusoidal
    boundary condition (Horton et al., 1934; de Vries, 1963):
 
@@ -900,7 +951,7 @@ Module Contents
    equation for a homogeneous medium subject to sinusoidal forcing
    (Carslaw & Jaeger, 1959).
 
-   .. method:: \*\*1. Log-Amplitude (α\_log)**
+   .. method:: 1. Log-Amplitude (α\_log)
 
       Uses the decay of the harmonic amplitude with depth:
 
@@ -910,7 +961,7 @@ Module Contents
                                    {2\,P\;\ln\bigl(A_1 / A_2\bigr)}
 
 
-   .. method:: \*\*2. Amplitude Ratio (α\_amp)**
+   .. method:: 2. Amplitude Ratio (α\_amp)
 
       Algebraically identical to the log-amplitude method but expressed
       directly in terms of the two amplitudes:
@@ -923,7 +974,7 @@ Module Contents
       where ``ω = 2π / P`` is the angular frequency.
 
 
-   .. method:: \*\*3. Phase Lag (α\_lag)**
+   .. method:: 3. Phase Lag (α\_lag)
 
       Relates the travel time (phase shift) of the temperature wave:
 
@@ -1008,12 +1059,12 @@ Module Contents
    *(z₁, z₂)* it
 
    1. Derives thermal diffusivity ``α`` with
-      :pyfunc:`calculate_thermal_diffusivity_for_pair`.
+      :func:`calculate_thermal_diffusivity_for_pair`.
    2. Converts ``α`` to thermal conductivity ``k`` via
-      :pyfunc:`thermal_conductivity`, using the mean volumetric water-
+      :func:`thermal_conductivity`, using the mean volumetric water-
       content of the two layers.
    3. Estimates instantaneous soil heat flux ``G`` by calling
-      :pyfunc:`soil_heat_flux`.
+      :func:`soil_heat_flux`.
 
    Results are returned in a *tidy*, hierarchical ``DataFrame`` whose
    outermost index encodes the depth pair (e.g. ``'0.05-0.10'``).
@@ -1039,7 +1090,7 @@ Module Contents
              inner index matches the *datetime* index of ``df`` (after
              dropping rows with *any* missing data).  For each analysis
              “method” returned by
-             :pyfunc:`calculate_thermal_diffusivity_for_pair` (keys of its
+             :func:`calculate_thermal_diffusivity_for_pair` (keys of its
              result dict) the following columns are present:
 
              ========  ==============================================================
@@ -1057,7 +1108,7 @@ Module Contents
      consistent sample support for derived quantities.
    * **Extensibility** – Additional diffusivity algorithms can be
      integrated by returning extra key–value pairs from
-     :pyfunc:`calculate_thermal_diffusivity_for_pair`; they will be
+     :func:`calculate_thermal_diffusivity_for_pair`; they will be
      propagated automatically.
    * **Performance** – The loop scales *O(n²)* with the number of
      depths.  For large sensor arrays, filter the pairs of interest
@@ -1151,3 +1202,22 @@ Module Contents
    :value: None
 
 
+.. py:function:: calculate_soil_heat_storage(df, depths, porosity=0.45, bulk_density=1.3)
+
+   Calculate soil heat storage and heat flux.
+
+   Parameters:
+   -----------
+   df : DataFrame
+       Must contain columns: 'T_5cm', 'T_10cm', etc. and 'SM_5cm', 'SM_10cm', etc.
+       where SM is volumetric soil moisture (0-1 or 0-100%)
+   depths : list
+       Measurement depths in cm, e.g., [5, 10, 20, 30, 40, 50]
+   porosity : float
+       Soil porosity (0-1), default 0.45
+   bulk_density : float
+       Dry soil bulk density (g/cm³), default 1.3
+
+   Returns:
+   --------
+   DataFrame with heat storage and flux values
