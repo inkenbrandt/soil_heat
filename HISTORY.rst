@@ -2,6 +2,12 @@
 History
 =======
 
+0.1.3 (2026-03-07)
+------------------
+
+* Add tests and documentation for the `johansen` module.
+* Bump version to 0.1.3.
+
 0.1.2 (2026-03-06)
 ------------------
 

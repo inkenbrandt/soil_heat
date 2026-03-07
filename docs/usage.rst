@@ -91,3 +91,44 @@ Estimating heat storage within biomass:
 
     s_canopy = compute_canopy_storage(df, col_irt="T_CANOPY", crop_type="alfalfa")
     print(s_canopy)
+
+Soil Thermal Properties and Advanced Flux (Johansen)
+----------------------------------------------------
+
+The `johansen` module provides sophisticated models for soil thermal properties and heat flux.
+
+Thermal Properties
+^^^^^^^^^^^^^^^^^^
+
+Estimating volumetric heat capacity and thermal conductivity from water content:
+
+.. code-block:: python
+
+    import numpy as np
+    from soil_heat import volumetric_heat_capacity, thermal_conductivity_johansen
+
+    theta = 0.25  # m3/m3
+    cv = volumetric_heat_capacity(theta)
+    lam = thermal_conductivity_johansen(theta)
+
+    print(f"Heat Capacity: {cv:.2e} J m-3 K-1")
+    print(f"Conductivity: {lam:.3f} W m-1 K-1")
+
+Surface Heat Flux from Gradient and Storage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The `method_gradient_plus_storage` function estimates surface ground heat flux (G0) by combining a conductive flux at a reference depth with calorimetric storage in the layers above:
+
+.. code-block:: python
+
+    import pandas as pd
+    from soil_heat import method_gradient_plus_storage, DEPTHS_CM
+
+    # Prepare sample temperature and water content dataframes
+    index = pd.date_range("2023-01-01", periods=10, freq="h")
+    ts = pd.DataFrame({d: np.linspace(10, 15, 10) for d in DEPTHS_CM}, index=index)
+    swc = pd.DataFrame({d: [0.2]*10 for d in DEPTHS_CM}, index=index)
+
+    # Estimate surface G0 using 10 cm as the reference depth
+    g0 = method_gradient_plus_storage(ts, swc, ref_depth_idx=2)
+    print(g0.head())
