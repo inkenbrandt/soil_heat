@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import curve_fit
 
+
 # Constants
 WATER_HEAT_CAPACITY = 4.18  # MJ m-3 K-1
 
