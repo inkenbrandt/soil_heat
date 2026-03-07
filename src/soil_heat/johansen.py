@@ -216,7 +216,7 @@ def thermal_conductivity_lu2007(theta):
     return a + b * theta - (a - d) * np.exp(-((c * theta) ** e))
 
 
-def method_gradient_surface(ts, swc, df):
+def gradient_surface(ts, swc, df):
     """
     Estimate surface ground heat flux using a temperature gradient from the canopy
     surface down to the 5 cm soil sensor (Method 2).
@@ -328,9 +328,7 @@ def compute_storage_above_plate(ts, swc, plate_depth_cm=PLATE_DEPTH_CM, dt=DT_SE
     return pd.Series(S_plate, index=ts.index, name="S_above_plate")
 
 
-def method_gradient_plus_storage(
-    ts, swc, ref_depth_idx=2, dt=DT_SEC, lam_model="johansen"
-):
+def gradient_plus_storage(ts, swc, ref_depth_idx=2, dt=DT_SEC, lam_model="johansen"):
     """
     Estimate surface ground heat flux using a conductive gradient at a reference depth
     plus calorimetric storage integrated over all layers above it.
