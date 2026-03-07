@@ -19,6 +19,7 @@ Available submodules:
 - `wang_and_yang`: Functions from Yang & Wang (2008).
 - `fao56_soil_heat_flux`: FAO-56 and ASCE soil heat flux methods.
 - `storage_calculations`: Soil and canopy heat storage calculations.
+- `johansen`: Soil thermal property models (Johansen, Lu et al.) and advanced heat flux methods.
 
 All functions are designed to work with NumPy arrays for efficient,
 vectorized computations.
