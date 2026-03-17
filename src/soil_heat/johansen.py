@@ -426,11 +426,16 @@ def gradient_plus_storage(ts, swc, ref_depth_idx=2, dt=DT_SEC, lam_model="johans
     n_above = ref_depth_idx + 1
     dTdt = ts.diff() / dt
     cv = volumetric_heat_capacity(swc.values)
-    S_above = np.nansum(
-        cv[:, :n_above] * dTdt.values[:, :n_above] * LAYER_THICK_M[:n_above], axis=1
-    )
 
-    G_surface = G_ref + S_above
-    return pd.Series(
-        G_surface, index=ts.index, name=f"G_grad+stor_{DEPTHS_CM[ref_depth_idx]:.0f}cm"
-    )
+    # Calculate the product (element-wise)
+    storage_elements = cv[:, :n_above] * dTdt.values[:, :n_above] * LAYER_THICK_M[:n_above]
+    S_above = np.nansum(storage_elements, axis=1)
+    all_nan_mask = np.all(np.isnan(storage_elements), axis=1)
+    S_above[all_nan_mask] = np.nan
+
+    return pd.DataFrame({
+        "G_ref": G_ref,
+        "Storage": S_above,
+        "G_surface": G_ref + S_above
+    }, index=ts.index)
+
