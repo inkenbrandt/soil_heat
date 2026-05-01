@@ -114,3 +114,4 @@ ENV/
 /.gitignore
 /src/soil_heat/__pycache__
 /src/soil_heat.egg-info
+/uv.lock
